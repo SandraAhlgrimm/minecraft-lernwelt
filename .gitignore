@@ -1,0 +1,10 @@
+# Build-Artefakte / SDK (nicht versionieren)
+*.apk
+*.keystore
+*.dex
+apkbuild/
+android/bin/
+android/obj/
+android/gen/
+sdk/
+*.zip

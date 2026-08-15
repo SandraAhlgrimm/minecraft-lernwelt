@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Minecraft Lernwelt</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#1d2b53; font-family:'Trebuchet MS','Segoe UI',sans-serif; }
+  #game { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  canvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#7ec0ee; touch-action:none; }
+  /* pixel font look */
+  .px { font-family:'Trebuchet MS',sans-serif; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<div id="game"><canvas id="c" width="800" height="480"></canvas></div>
+<script>
+/* ================================================================
+   MINECRAFT LERNWELT  –  Lernspiel für die 1./2. Klasse (Deutsch)
+   Ein einziges HTML-File, läuft offline im Browser (Fire Tablet).
+   Mini-Spiele: Lesen, Schreiben, Rechnen + Jump & Run mit Drachen.
+   ================================================================ */
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W = 800, H = 480;
+ctx.imageSmoothingEnabled = false;
+
+/* ---------- Bildschirm skalieren (Tablet, Querformat) ---------- */
+function resize(){
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  cv.style.width  = (W * s) + 'px';
+  cv.style.height = (H * s) + 'px';
+}
+window.addEventListener('resize', resize); resize();
+
+/* ---------- Fortschritt speichern ---------- */
+let save = { diamanten: 0, sterne: 0 };
+try { const s = localStorage.getItem('mc_lernwelt'); if(s) save = JSON.parse(s); } catch(e){}
+function speichern(){ try{ localStorage.setItem('mc_lernwelt', JSON.stringify(save)); }catch(e){} }
+
+/* ---------- Ton (kleine Beep-Töne, ohne Dateien) ---------- */
+let AC;
+function beep(freq, dur, type){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type||'square'; o.frequency.value = freq;
+    o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(0.15, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+    o.start(); o.stop(AC.currentTime + dur);
+  }catch(e){}
+}
+const sndOk   = ()=>{ beep(660,0.09); setTimeout(()=>beep(880,0.12),90); };
+const sndFail = ()=>{ beep(180,0.25,'sawtooth'); };
+const sndJump = ()=>{ beep(520,0.08); };
+const sndCoin = ()=>{ beep(1050,0.06); setTimeout(()=>beep(1400,0.07),60); };
+
+/* ---------- Sprachausgabe (liest Deutsch vor) ---------- */
+function sprich(text){
+  try{
+    // Auf dem Tablet (APK): native deutsche Vorlese-Stimme
+    if(window.AndroidBridge && typeof AndroidBridge.sprich==='function'){ AndroidBridge.sprich(text); return; }
+    if(!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE'; u.rate = 0.9; u.pitch = 1.1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function appBeenden(){
+  try{ if(window.AndroidBridge && typeof AndroidBridge.beenden==='function'){ AndroidBridge.beenden(); return true; } }catch(e){}
+  return false;
+}
+
+/* ---------- Eingabe (Touch + Maus) ---------- */
+let pointer = { x:0, y:0, down:false, justDown:false };
+function toCanvas(e){
+  const r = cv.getBoundingClientRect();
+  const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+  return { x:(t.clientX - r.left) / r.width * W, y:(t.clientY - r.top) / r.height * H };
+}
+function onDown(e){ e.preventDefault(); const p=toCanvas(e); pointer.x=p.x; pointer.y=p.y; pointer.down=true; pointer.justDown=true; if(AC&&AC.state==='suspended')AC.resume(); }
+function onMove(e){ e.preventDefault(); const p=toCanvas(e); pointer.x=p.x; pointer.y=p.y; }
+function onUp(e){ e.preventDefault(); pointer.down=false; }
+cv.addEventListener('mousedown', onDown); cv.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+cv.addEventListener('touchstart', onDown, {passive:false}); cv.addEventListener('touchmove', onMove, {passive:false}); cv.addEventListener('touchend', onUp, {passive:false});
+
+/* ---------- Buttons / Helfer zum Zeichnen ---------- */
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function text(t,x,y,size,col,align){ ctx.fillStyle=col||'#fff'; ctx.font='bold '+size+'px Trebuchet MS'; ctx.textAlign=align||'center'; ctx.textBaseline='middle'; ctx.fillText(t,x,y); }
+let buttons = [];
+function knopf(id,x,y,w,h,label,col,txtcol,size){
+  const hover = pointer.x>x && pointer.x<x+w && pointer.y>y && pointer.y<y+h;
+  ctx.fillStyle='rgba(0,0,0,0.35)'; rr(x+4,y+5,w,h,10); ctx.fill();
+  ctx.fillStyle = col || (hover ? '#7bc86c':'#5aa54a'); rr(x,y,w,h,10); ctx.fill();
+  ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,0.35)'; rr(x+3,y+3,w-6,h-6,8); ctx.stroke();
+  text(label, x+w/2, y+h/2, size||26, txtcol||'#fff');
+  buttons.push({id,x,y,w,h});
+  return hover;
+}
+function klick(id){
+  if(!pointer.justDown) return false;
+  for(const b of buttons){ if(b.id===id && pointer.x>b.x && pointer.x<b.x+b.w && pointer.y>b.y && pointer.y<b.y+b.h) return true; }
+  return false;
+}
+
+/* ---------- Minecraft-Blöcke zeichnen ---------- */
+function block(x,y,s,c1,c2){
+  x=Math.round(x); y=Math.round(y);
+  ctx.fillStyle=c2; ctx.fillRect(x,y,s,s);
+  ctx.fillStyle=c1; ctx.fillRect(x,y,s,Math.round(s*0.72));
+  ctx.fillStyle='rgba(0,0,0,0.12)';
+  for(let i=0;i<5;i++){ ctx.fillRect(x+((i*17+(x%7))%(s-6)), y+((i*11+(y%5))%(s-6)), 4,4); }
+  ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x,y,s,3);
+  ctx.fillStyle='rgba(0,0,0,0.20)'; ctx.fillRect(x,y+s-3,s,3);
+  ctx.strokeStyle='rgba(0,0,0,0.30)'; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,s-2,s-2);
+}
+/* Gras-Block (grün oben, Erde unten, Grashalme) */
+function grasBlock(x,y,s){
+  x=Math.round(x); y=Math.round(y);
+  ctx.fillStyle='#8a6b4a'; ctx.fillRect(x,y,s,s);
+  ctx.fillStyle='#6b4f34';
+  for(let i=0;i<6;i++){ ctx.fillRect(x+((i*13+(x%7))%(s-5)), y+((i*9+(y%5))%(s-8))+Math.round(s*0.3), 4,4); }
+  ctx.fillStyle='#4f8f36'; ctx.fillRect(x, y, s, Math.round(s*0.34));
+  ctx.fillStyle='#63bf44'; ctx.fillRect(x, y, s, 5);
+  ctx.fillStyle='#4f8f36';
+  for(let gx=0; gx<s; gx+=6){ ctx.fillRect(x+gx, y+Math.round(s*0.34), 4, (gx/6%2===0)?6:3); }
+  ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,s-2,s-2);
+}
+/* Erd-Block */
+function erdBlock(x,y,s){
+  x=Math.round(x); y=Math.round(y);
+  ctx.fillStyle='#8a6b4a'; ctx.fillRect(x,y,s,s);
+  ctx.fillStyle='#71543a';
+  for(let i=0;i<7;i++){ ctx.fillRect(x+((i*17+(x%9))%(s-5)), y+((i*13+(y%6))%(s-5)), 4,4); }
+  ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(x,y,s,3);
+  ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,s-2,s-2);
+}
+/* Ferne Block-Berge (Parallax) */
+function berge(off){
+  const base=272;
+  for(let i=0;i<7;i++){
+    const bx=Math.round(((i*210 - off*0.25)%(W+420)+(W+420))%(W+420))-210;
+    const h=70+((i*53)%3)*30;
+    ctx.fillStyle='#6a86b0'; ctx.fillRect(bx, base-h, 130, h);
+    ctx.fillStyle='#7d98c0'; ctx.fillRect(bx, base-h, 130, 10);
+    ctx.fillStyle='#e8f0ff'; ctx.fillRect(bx+34, base-h, 62, 7);
+  }
+}
+/* Stein-Block */
+function steinBlock(x,y,s){
+  x=Math.round(x); y=Math.round(y);
+  ctx.fillStyle='#8a9096'; ctx.fillRect(x,y,s,s);
+  ctx.fillStyle='#767c82';
+  for(let i=0;i<6;i++){ ctx.fillRect(x+((i*17+(x%7))%(s-6)), y+((i*11+(y%5))%(s-6)), 5,5); }
+  ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x,y,s,3);
+  ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.fillRect(x,y+s-3,s,3);
+  ctx.strokeStyle='rgba(0,0,0,0.30)'; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,s-2,s-2);
+}
+/* Lavafeld (animiert, tödlich) */
+function lavaCell(x,y,s){
+  x=Math.round(x); y=Math.round(y); const t=anim*0.15;
+  ctx.fillStyle='#d8481a'; ctx.fillRect(x,y,s,s);
+  ctx.fillStyle='#ff8a2a';
+  for(let i=0;i<4;i++){ ctx.fillRect(x+5+i*9, y+8+Math.round(Math.sin(t+i)*4), 6,6); }
+  ctx.fillStyle='#ffd23a'; ctx.fillRect(x, y+2+Math.round(Math.sin(t)*2), s, 4);
+  ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=2; ctx.strokeRect(x+1,y+1,s-2,s-2);
+}
+/* Sprungfeder (Megasprung) */
+function federDraw(x,y,s){
+  x=Math.round(x); y=Math.round(y);
+  ctx.fillStyle='#4a4f57'; ctx.fillRect(x+4, y+s-10, s-8, 10);
+  ctx.strokeStyle='#c9ccd2'; ctx.lineWidth=4; ctx.beginPath();
+  let yy=y+s-12; ctx.moveTo(x+10,yy);
+  for(let k=0;k<3;k++){ ctx.lineTo(x+s-10, yy-6); ctx.lineTo(x+10, yy-12); yy-=12; }
+  ctx.stroke();
+  ctx.fillStyle='#ff5b8a'; ctx.fillRect(x+3, y+2, s-6, 8);
+  ctx.fillStyle='#ff9bbf'; ctx.fillRect(x+3, y+2, s-6, 3);
+}
+/* Steve-artige Figur (blockig) */
+function heldZeichnen(x,y,s,blick){
+  x=Math.round(x); y=Math.round(y); const p=s/8;
+  // Beine (blaue Hose) + Schuhe
+  ctx.fillStyle='#3a4a8a'; ctx.fillRect(x+p*1.4, y+p*7.6, p*2.4, p*2.4);
+  ctx.fillStyle='#2f3d72'; ctx.fillRect(x+p*4.2, y+p*7.6, p*2.4, p*2.4);
+  ctx.fillStyle='#5a5a5a'; ctx.fillRect(x+p*1.4, y+p*9.4, p*2.4, p*0.9); ctx.fillRect(x+p*4.2, y+p*9.4, p*2.4, p*0.9);
+  // Arme + Hände
+  ctx.fillStyle='#28b0a8'; ctx.fillRect(x+p*0.2, y+p*4.2, p*1.3, p*3.2); ctx.fillRect(x+p*6.5, y+p*4.2, p*1.3, p*3.2);
+  ctx.fillStyle='#caa06f'; ctx.fillRect(x+p*0.2, y+p*7.0, p*1.3, p*0.9); ctx.fillRect(x+p*6.5, y+p*7.0, p*1.3, p*0.9);
+  // Körper (türkises Shirt)
+  ctx.fillStyle='#2fb0a8'; ctx.fillRect(x+p*1.4, y+p*4.2, p*5.2, p*3.6);
+  ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(x+p*3.9, y+p*4.2, p*0.3, p*3.6);
+  // Kopf + Haare
+  ctx.fillStyle='#caa06f'; ctx.fillRect(x+p*1.8, y+p*0.2, p*4.4, p*4);
+  ctx.fillStyle='#4a3320'; ctx.fillRect(x+p*1.8, y+p*0.2, p*4.4, p*1.3); ctx.fillRect(x+p*1.8, y+p*0.2, p*0.8, p*3);
+  // Augen
+  const eo = blick<0? -p*0.3 : p*0.3;
+  ctx.fillStyle='#fff'; ctx.fillRect(x+p*2.7+eo, y+p*2, p*1, p*1);
+  ctx.fillStyle='#3a5fbf'; ctx.fillRect(x+p*2.9+eo, y+p*2.2, p*0.6, p*0.7);
+  ctx.fillStyle='#fff'; ctx.fillRect(x+p*4.3+eo, y+p*2, p*1, p*1);
+  ctx.fillStyle='#3a5fbf'; ctx.fillRect(x+p*4.5+eo, y+p*2.2, p*0.6, p*0.7);
+  ctx.fillStyle='#a87a52'; ctx.fillRect(x+p*3.6, y+p*3.2, p*1.2, p*0.5);
+}
+/* Ender-Drache (blockig, dunkelviolett, magenta Augen) */
+function drache(x,y,s,flap){
+  x=Math.round(x); y=Math.round(y); const p=s/12;
+  const wy = flap ? y-p : y+p*1.5;
+  ctx.fillStyle='#241a33'; ctx.fillRect(x, wy, p*5, p*4); ctx.fillRect(x+p*0.5, wy-p*1.5, p*3.5, p*2);
+  ctx.fillStyle='#3a2a55'; ctx.fillRect(x+p*1, wy+p*0.5, p*3, p*2.5);
+  ctx.fillStyle='#1c1428'; ctx.fillRect(x+p*3, y+p*4.5, p*4, p*1.4); // Schwanz
+  ctx.fillStyle='#2b2140'; ctx.fillRect(x+p*4, y+p*3, p*5, p*4); // Körper
+  ctx.fillStyle='#3a2a55'; ctx.fillRect(x+p*4, y+p*3, p*5, p*1.2);
+  ctx.fillStyle='#241a33'; ctx.fillRect(x+p*8, y+p*1.5, p*4, p*3.2); // Kopf
+  ctx.fillStyle='#2b2140'; ctx.fillRect(x+p*11.5, y+p*2.6, p*1.6, p*1.4); // Schnauze
+  ctx.fillStyle='#d84bd8'; ctx.fillRect(x+p*9.2, y+p*2.4, p*1.2, p*0.9); // Auge
+  ctx.fillStyle='#ff9bff'; ctx.fillRect(x+p*9.4, y+p*2.55, p*0.5, p*0.5);
+  ctx.fillStyle='#1c1428'; ctx.fillRect(x+p*4.5, y+p*6.6, p*1.6, p*1.4); ctx.fillRect(x+p*7, y+p*6.6, p*1.6, p*1.4); // Beine
+  ctx.fillStyle='rgba(180,90,220,0.5)'; ctx.fillRect(x+p*13, y+p*3.2, 3,3); ctx.fillRect(x+p*13.5, y+p*4.4, 2,2);
+}
+
+/* ================================================================
+   SPIEL-ZUSTAND
+   ================================================================ */
+let scene = 'menu';
+let anim = 0;
+let flash = { t:0, ok:true, msg:'' };
+/* --- Spielzeit, Kosten, Passwort, Bestenliste --- */
+let startZeit = Date.now();
+const SPIELZEIT_MS = 20*60*1000;   // 20 Minuten
+const KOSTEN = 5;                  // Diamanten pro Drachensprung
+const ELTERN_PIN = '1144';         // Passwort für Erwachsene (hier änderbar)
+let highscore = [];
+try{ const hs=localStorage.getItem('mc_highscore'); if(hs) highscore=JSON.parse(hs); }catch(e){}
+let letzterName=''; try{ letzterName=localStorage.getItem('mc_lastname')||''; }catch(e){}
+let eingabeName='', pinEingabe='', pendingScore=0;
+function darfSpielen(){ return save.diamanten >= KOSTEN; }
+function zahleSpiel(){ save.diamanten -= KOSTEN; if(save.diamanten<0) save.diamanten=0; speichern(); }
+function restZeitStr(){ const ms=Math.max(0, SPIELZEIT_MS-(Date.now()-startZeit)); const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); return m+':'+(s<10?'0':'')+s; }
+function heuteStr(){ const d=new Date(), p=n=>(n<10?'0':'')+n; return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear(); }
+function speichereHighscore(name,punkte){ highscore.push({name:name||'Kind', punkte, datum:heuteStr()}); highscore.sort((a,b)=>b.punkte-a.punkte); highscore=highscore.slice(0,10); try{localStorage.setItem('mc_highscore',JSON.stringify(highscore));}catch(e){} }
+function zeigeFlash(ok,msg){ flash.t=60; flash.ok=ok; flash.msg=msg; if(ok){sndOk();} else {sndFail();} }
+
+function belohnung(diam){ save.diamanten += diam; save.sterne += 1; speichern(); }
+
+/* ---------- Hintergrund (Himmel + Boden) ---------- */
+function himmel(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#6ec6ff'); g.addColorStop(1,'#bfe9ff');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // Wolken
+  ctx.fillStyle='rgba(255,255,255,0.9)';
+  for(let i=0;i<3;i++){ const wx=(i*300 + anim*0.2)%(W+120)-60; ctx.fillRect(wx,60+i*30,90,26); ctx.fillRect(wx+25,45+i*30,60,26); }
+  // Sonne
+  ctx.fillStyle='#ffe86b'; ctx.fillRect(W-90,40,50,50);
+}
+function boden(y){
+  for(let x=0;x<W;x+=40) grasBlock(x,y,40);
+  for(let yy=y+40;yy<H;yy+=40) for(let x=0;x<W;x+=40) erdBlock(x,yy,40);
+}
+
+/* ---------- Kopfzeile mit Punkten ---------- */
+function kopf(titel){
+  ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.fillRect(0,0,W,54);
+  text(titel, W/2, 22, 24, '#fff');
+  text('🕒 '+restZeitStr(), W/2, 44, 13, '#cfe8ff');
+  block(16,12,30,'#7ec8ff','#4aa3e0'); text('♦', 31, 27, 20, '#fff');
+  text(save.diamanten, 60, 27, 22, '#fff','left');
+  text('★ '+save.sterne, W-16, 27, 22, '#ffe86b','right');
+}
+
+/* ================================================================
+   1) HAUPTMENÜ / WELTKARTE
+   ================================================================ */
+const spiele = [
+  { id:'lesen',    name:'Lesen',    farbe:'#e0813a', icon:'📖' },
+  { id:'schreiben',name:'Schreiben',farbe:'#3a86e0', icon:'✏️' },
+  { id:'rechnen',  name:'Rechnen',  farbe:'#8a3ae0', icon:'➕' },
+  { id:'jumprun',  name:'Drachensprung', farbe:'#e03a5a', icon:'🐉' },
+];
+function menu(){
+  himmel();
+  // Titel-Banner
+  text('MINECRAFT', W/2, 70, 54, '#3a3a3a'); ctx.fillStyle='#5aa54a';
+  text('MINECRAFT', W/2-3, 67, 54, '#6bd44a');
+  text('LERNWELT', W/2, 118, 40, '#3a3a3a');
+  text('LERNWELT', W/2-2, 116, 40, '#ffd23a');
+
+  heldZeichnen(70, 150, 90, Math.sin(anim*0.05)>0?1:-1);
+  drache(W-190, 150+Math.sin(anim*0.06)*8, 130, Math.floor(anim/12)%2===0);
+
+  // Zähler oben
+  text('♦ '+save.diamanten, 16, 20, 22, '#123', 'left');
+  text('🕒 '+restZeitStr(), W-16, 20, 20, '#123', 'right');
+
+  // 4 große Knöpfe
+  const bw=330, bh=70, gx=(W-bw*2-30)/2, gy=200;
+  spiele.forEach((s,i)=>{
+    const x=gx+(i%2)*(bw+30), y=gy+Math.floor(i/2)*(bh+22);
+    if(s.id==='jumprun'){
+      const frei=darfSpielen();
+      const label = frei ? (s.icon+'  Drachensprung  ▶') : ('🔒 Drachensprung  '+KOSTEN+'♦');
+      knopf(s.id, x, y, bw, bh, label, frei?s.farbe:'#7a5a3a', '#fff', frei?27:23);
+    } else {
+      knopf(s.id, x, y, bw, bh, s.icon+'   '+s.name, s.farbe, '#fff', 30);
+    }
+  });
+  if(!darfSpielen()) text('Sammle '+KOSTEN+' ♦ beim Lesen, Schreiben, Rechnen – dann Drachensprung!', W/2, 372, 16, '#7a3a1a');
+
+  knopf('bauen', 40, 392, 430, 54, '🔨  Baue deine Drachenwelt!', '#c98a2a', '#fff', 22);
+  knopf('bestenliste', 490, 392, 270, 54, '🏆 Bestenliste', '#3a86e0', '#fff', 22);
+  flashZeigen();
+
+  if(pointer.justDown){
+    for(const s of spiele){
+      if(klick(s.id)){
+        if(s.id==='jumprun'){
+          if(darfSpielen()){ zahleSpiel(); starteJumpRun(); scene='jumprun'; }
+          else { zeigeFlash(false,'Erst '+KOSTEN+' ♦ sammeln!'); sprich('Sammle erst fünf Diamanten beim Lesen, Schreiben oder Rechnen.'); }
+        } else { scene=s.id; starte(s.id); }
+        return;
+      }
+    }
+    if(klick('bauen')){ starteBauen(); scene='bauen'; return; }
+    if(klick('bestenliste')){ scene='bestenliste'; return; }
+  }
+}
+
+/* ================================================================
+   2) LESEN  –  Wort lesen, passendes Emoji/Bild wählen
+   ================================================================ */
+const leseAufgaben = [
+  { wort:'HUND',  richtig:'🐶', falsch:['🐱','🐟','🐦'] },
+  { wort:'KATZE', richtig:'🐱', falsch:['🐶','🐮','🐷'] },
+  { wort:'BAUM',  richtig:'🌳', falsch:['🌸','🍎','⭐'] },
+  { wort:'APFEL', richtig:'🍎', falsch:['🍌','🥕','🍇'] },
+  { wort:'SONNE', richtig:'☀️', falsch:['🌙','⛅','❄️'] },
+  { wort:'FISCH', richtig:'🐟', falsch:['🐸','🐝','🦋'] },
+  { wort:'HAUS',  richtig:'🏠', falsch:['🚗','⛵','🚂'] },
+  { wort:'BLUME', richtig:'🌸', falsch:['🌵','🍀','🌰'] },
+  { wort:'DRACHE',richtig:'🐉', falsch:['🐍','🦎','🐢'] },
+  { wort:'STERN', richtig:'⭐', falsch:['☁️','🌈','💧'] },
+];
+let lese = {};
+function starteLesen(){
+  const a = leseAufgaben[Math.floor(Math.random()*leseAufgaben.length)];
+  const opts = [a.richtig, ...a.falsch].sort(()=>Math.random()-0.5);
+  lese = { a, opts };
+  setTimeout(()=>sprich('Lies das Wort. '+a.wort), 300);
+}
+function lesen(){
+  himmel(); boden(H-80); kopf('Lesen');
+  ctx.fillStyle='rgba(255,255,255,0.92)'; rr(W/2-200,80,400,90,14); ctx.fill();
+  text(lese.a.wort, W/2, 125, 60, '#e0813a');
+  knopf('hoer', W/2+150, 92, 60, 60, '🔊', '#3a86e0', '#fff', 30);
+
+  const opts=lese.opts, ow=150, oh=110, gy=210, gx=(W-ow*2-40)/2;
+  opts.forEach((o,i)=>{
+    const x=gx+(i%2)*(ow+40), y=gy+Math.floor(i/2)*(oh+16);
+    knopf('opt'+i, x, y, ow, oh, o, '#ffffff', '#000', 56);
+  });
+  zurueckKnopf();
+  flashZeigen();
+
+  if(pointer.justDown){
+    if(klick('hoer')) sprich(lese.a.wort);
+    if(klick('zurueck')){ scene='menu'; return; }
+    for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
+      if(opts[i]===lese.a.richtig){ belohnung(1); zeigeFlash(true,'Super! +1 ♦'); sprich('Richtig! '+lese.a.wort); setTimeout(starteLesen,3500); }
+      else { zeigeFlash(false,'Versuch es nochmal'); }
+    }}
+  }
+}
+
+/* ================================================================
+   3) SCHREIBEN  –  fehlenden Buchstaben ergänzen
+   ================================================================ */
+const schreibWorte = ['HUND','KATZE','MAUS','BAUM','HAUS','SONNE','MOND','FISCH','BALL','BLUME','DRACHE','STERN','KUH','IGEL','ENTE'];
+let schr = {};
+function starteSchreiben(){
+  const w = schreibWorte[Math.floor(Math.random()*schreibWorte.length)];
+  const pos = Math.floor(Math.random()*w.length);
+  const richtig = w[pos];
+  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const set=new Set([richtig]);
+  while(set.size<4){ set.add(alphabet[Math.floor(Math.random()*26)]); }
+  const opts=[...set].sort(()=>Math.random()-0.5);
+  schr={ w, pos, richtig, opts };
+  setTimeout(()=>sprich('Welcher Buchstabe fehlt? '+w),300);
+}
+function schreiben(){
+  himmel(); boden(H-80); kopf('Schreiben');
+  text('Welcher Buchstabe fehlt?', W/2, 78, 24, '#204060');
+  // Wort mit Lücke
+  const w=schr.w, n=w.length, bw=54, tot=n*bw, sx=(W-tot)/2, sy=110;
+  for(let i=0;i<n;i++){
+    const x=sx+i*bw;
+    if(i===schr.pos){ ctx.fillStyle='#ffe86b'; rr(x+3,sy,bw-6,bw,8); ctx.fill(); text('?',x+bw/2,sy+bw/2,40,'#e03a5a'); }
+    else { block(x+3,sy,bw-6,'#c9946a','#a06b45'); text(w[i],x+bw/2,sy+bw/2,32,'#fff'); }
+  }
+  knopf('hoer', W-70, 74, 54, 54, '🔊', '#3a86e0','#fff',26);
+  const opts=schr.opts, ow=120, oh=90, gy=220, gx=(W-ow*4-30*3)/2;
+  opts.forEach((o,i)=>{ knopf('opt'+i, gx+i*(ow+30), gy, ow, oh, o, '#8a3ae0','#fff',48); });
+  zurueckKnopf(); flashZeigen();
+
+  if(pointer.justDown){
+    if(klick('hoer')) sprich(schr.w);
+    if(klick('zurueck')){ scene='menu'; return; }
+    for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
+      if(opts[i]===schr.richtig){ belohnung(1); zeigeFlash(true,'Richtig! +1 ♦'); sprich('Richtig! '+schr.w); setTimeout(starteSchreiben,1100); }
+      else zeigeFlash(false,'Nicht ganz...');
+    }}
+  }
+}
+
+/* ================================================================
+   4) RECHNEN  –  Plus/Minus bis 20
+   ================================================================ */
+let rech = {};
+function starteRechnen(){
+  const minus = Math.random()<0.5;
+  let a,b,erg,zeichen;
+  if(minus){ a=Math.floor(Math.random()*16)+4; b=Math.floor(Math.random()*a); erg=a-b; zeichen='-'; }
+  else { a=Math.floor(Math.random()*15)+1; b=Math.floor(Math.random()*(20-a))+1; erg=a+b; zeichen='+'; }
+  const set=new Set([erg]);
+  while(set.size<4){ let d=erg+Math.floor(Math.random()*7)-3; if(d>=0) set.add(d); }
+  const opts=[...set].sort(()=>Math.random()-0.5);
+  rech={a,b,erg,zeichen,opts};
+  setTimeout(()=>sprich(a+' '+(minus?'minus':'plus')+' '+b),300);
+}
+function rechnen(){
+  himmel(); boden(H-80); kopf('Rechnen');
+  // Aufgabe mit Blöcken visualisiert
+  ctx.fillStyle='rgba(255,255,255,0.92)'; rr(W/2-210,78,420,84,14); ctx.fill();
+  text(rech.a+'  '+rech.zeichen+'  '+rech.b+'  =  ?', W/2, 120, 46, '#8a3ae0');
+  // kleine Diamant-Blöcke als Zählhilfe
+  const cy=180;
+  for(let i=0;i<rech.a;i++) block(60+i*24, cy, 20,'#7ec8ff','#4aa3e0');
+  text(rech.zeichen, 60+rech.a*24+16, cy+10, 30,'#333','left');
+  const off=60+rech.a*24+50;
+  for(let i=0;i<rech.b;i++) block(off+i*24, cy, 20,'#ffd23a','#d0a520');
+
+  const opts=rech.opts, ow=130, oh=90, gy=250, gx=(W-ow*4-24*3)/2;
+  opts.forEach((o,i)=>{ knopf('opt'+i, gx+i*(ow+24), gy, ow, oh, ''+o, '#5aa54a','#fff',48); });
+  zurueckKnopf(); flashZeigen();
+
+  if(pointer.justDown){
+    if(klick('zurueck')){ scene='menu'; return; }
+    for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
+      if(opts[i]===rech.erg){ belohnung(1); zeigeFlash(true,'Genau! +1 ♦'); sprich('Richtig, '+rech.erg); setTimeout(starteRechnen,1000); }
+      else zeigeFlash(false,'Zähl nochmal nach');
+    }}
+  }
+}
+
+/* ================================================================
+   5) JUMP & RUN  –  Drachensprung, Diamanten sammeln
+   ================================================================ */
+let jr = {};
+function starteJumpRun(){
+  jr = {
+    x:120, y:240, vy:0, onGround:true, jumpsLeft:2,
+    worldX:0, speed:2.9, lebt:true,
+    diamGesammelt:0, ziel:5,
+    plattformen:[], diamanten:[], gegner:[], lava:[], schuesse:[], cool:0, custom:false, fertig:false,
+  };
+  // Start-Plattform direkt unter dem Helden (kein Loch am Anfang)
+  jr.plattformen.push({x:0, y:300, w:360});
+  let prevY = 300;
+  let px = 360 + 80;
+  for(let i=0;i<13;i++){
+    // Höhe nur um eine Stufe (46px) vom vorherigen abweichen -> gut erreichbar
+    const step = Math.floor(Math.random()*3)-1; // -1,0,+1
+    let py = prevY + step*46;
+    py = Math.max(180, Math.min(300, py));
+    prevY = py;
+    const bw = 130 + Math.floor(Math.random()*70);
+    jr.plattformen.push({x:px, y:py, w:bw});
+    // Diamant über Plattform
+    if(Math.random()<0.7) jr.diamanten.push({x:px+bw/2, y:py-50, weg:false});
+    // Drache-Gegner (nicht direkt am Rand der Plattform)
+    if(i>1 && Math.random()<0.45) jr.gegner.push({x:px+bw/2, y:py-46, baseY:py-46, t:Math.random()*6});
+    // Lücke: kleiner als die Sprungweite
+    px += bw + 70 + Math.floor(Math.random()*40);
+  }
+  jr.endX = px + 100;
+}
+function jumpRun(){
+  himmel();
+  berge(jr.worldX);
+  kopf('Drachensprung');
+  const groundY = 380;
+
+  // Steuerung: läuft automatisch; Tippen = Sprung, Feuer-Knopf = schießen
+  const fb = { x:W-172, y:H-150, w:152, h:60 };
+  const imFeuer = pointer.x>fb.x && pointer.y>fb.y && pointer.y<fb.y+fb.h;
+  const tippSprung = pointer.justDown && pointer.y > 60 && !(pointer.x<150 && pointer.y>H-60) && !imFeuer;
+
+  // Physik
+  if(jr.lebt){
+    jr.worldX += jr.speed;
+    if(jr.cool>0) jr.cool--;
+    // Schießen (Feuerball)
+    if(pointer.justDown && imFeuer && jr.cool<=0){
+      jr.schuesse.push({x: jr.worldX + jr.x + 46, y: jr.y+24, vx:9});
+      jr.cool=9; beep(760,0.05); setTimeout(()=>beep(520,0.06),50);
+    }
+    // Doppelsprung: max. 2 Sprünge, bevor der Boden berührt wird
+    if(tippSprung && jr.jumpsLeft>0){ jr.vy = jr.onGround ? -12.5 : -11.2; jr.jumpsLeft--; jr.onGround=false; sndJump(); }
+    jr.vy += 0.6; jr.y += jr.vy;
+    jr.onGround=false;
+    // Projektile bewegen
+    for(const s of jr.schuesse) s.x += s.vx;
+
+    // Boden-Kollision (durchgehender Boden ganz unten als Sicherheit? Nein -> Löcher)
+    // Plattform-Kollision
+    const px = jr.x; // Bildschirm-X des Helden fest
+    for(const p of jr.plattformen){
+      const sx = p.x - jr.worldX;
+      if(px+30 > sx && px < sx + p.w){
+        if(jr.vy>=0 && jr.y+60 >= p.y && jr.y+60 <= p.y + 30){
+          if(p.mat==='feder'){ jr.y=p.y-60; jr.vy=-18.5; jr.jumpsLeft=2; jr.onGround=false; beep(900,0.08); setTimeout(()=>beep(1350,0.1),70); }
+          else { jr.y = p.y - 60; jr.vy = 0; jr.onGround=true; jr.jumpsLeft=2; }
+        }
+      }
+    }
+    // Runtergefallen?
+    if(jr.y > H+60){ jr.lebt=false; sndFail(); }
+    // Lava berühren = verloren
+    for(const L of jr.lava){
+      const pxw=jr.worldX+jr.x;
+      if(pxw+30 > L.x && pxw < L.x+40 && jr.y+58 > L.y+8 && jr.y < L.y+40){ jr.lebt=false; sndFail(); }
+    }
+    // Diamanten
+    for(const d of jr.diamanten){
+      if(d.weg) continue;
+      const sx=d.x - jr.worldX;
+      if(Math.abs((jr.x+15)-sx)<30 && Math.abs((jr.y+30)-d.y)<40){ d.weg=true; jr.diamGesammelt++; sndCoin(); }
+    }
+    // Feuerbälle treffen Gegner
+    for(const s of jr.schuesse){
+      for(const g of jr.gegner){
+        if(g.dead) continue;
+        const gy=g.baseY + Math.sin(g.t)*30;
+        if(Math.abs(s.x-g.x)<32 && Math.abs(s.y-gy)<36){ g.dead=true; s.dead=true; jr.diamGesammelt++; sndCoin(); }
+      }
+    }
+    jr.schuesse = jr.schuesse.filter(s=> !s.dead && (s.x - jr.worldX) < W+60);
+    // Gegner (Drachen) – berühren = verloren
+    for(const g of jr.gegner){
+      if(g.dead) continue;
+      g.t += 0.05; const gy = g.baseY + Math.sin(g.t)*30;
+      const sx=g.x - jr.worldX;
+      if(sx>-60 && sx<W+60 && Math.abs((jr.x+15)-sx)<34 && Math.abs((jr.y+30)-gy)<34){
+        jr.lebt=false; sndFail();
+      }
+    }
+    // Ziel erreicht
+    if(jr.worldX > jr.endX - jr.x){
+      save.sterne += 1; speichern();
+      pendingScore = jr.diamGesammelt;
+      jr.lebt=false; jr.fertig=true;
+      eingabeName = letzterName;
+      sprich('Super gemacht! Trage deinen Namen ein.');
+      scene='nameEingabe';
+    }
+  }
+
+  // ---- Zeichnen ----
+  // Plattformen
+  for(const p of jr.plattformen){
+    const sx=p.x - jr.worldX;
+    if(sx>W || sx+p.w<0) continue;
+    if(p.mat==='stein'){
+      for(let x=0;x<p.w;x+=40) steinBlock(sx+x, p.y, 40);
+      steinBlock(sx, p.y+40, 40); steinBlock(sx+p.w-40, p.y+40, 40);
+    } else if(p.mat==='feder'){
+      for(let x=0;x<p.w;x+=40) grasBlock(sx+x, p.y, 40);
+      federDraw(sx, p.y, 40);
+    } else {
+      for(let x=0;x<p.w;x+=40) grasBlock(sx+x, p.y, 40);
+      erdBlock(sx, p.y+40, 40);
+      erdBlock(sx+p.w-40, p.y+40, 40);
+    }
+  }
+  // Lava
+  for(const L of jr.lava){ const sx=L.x - jr.worldX; if(sx<-40||sx>W+40) continue; lavaCell(sx, L.y, 40); }
+  // Diamanten (Minecraft-Edelstein)
+  for(const d of jr.diamanten){ if(d.weg) continue; const sx=d.x - jr.worldX; if(sx<-30||sx>W+30)continue;
+    const fy=d.y+Math.sin(anim*0.1)*4;
+    ctx.save(); ctx.translate(sx,fy);
+    ctx.fillStyle='rgba(126,200,255,0.25)'; ctx.beginPath(); ctx.arc(0,0,20,0,7); ctx.fill();
+    ctx.rotate(Math.PI/4);
+    ctx.fillStyle='#2f8fd0'; ctx.fillRect(-11,-11,22,22);
+    ctx.fillStyle='#7ec8ff'; ctx.fillRect(-9,-9,18,18);
+    ctx.fillStyle='#c9ecff'; ctx.fillRect(-9,-9,9,9);
+    ctx.fillStyle='#eaf7ff'; ctx.fillRect(-7,-7,4,4);
+    ctx.restore(); }
+  // Gegner-Drachen
+  for(const g of jr.gegner){ if(g.dead) continue; const sx=g.x - jr.worldX; if(sx<-70||sx>W+70)continue; const gy=g.baseY+Math.sin(g.t)*30; drache(sx-40, gy-30, 80, Math.floor(anim/8)%2===0); }
+  // Feuerbälle
+  for(const s of jr.schuesse){ const sx=s.x - jr.worldX; if(sx<-20||sx>W+20)continue;
+    ctx.fillStyle='rgba(255,140,50,0.4)'; ctx.fillRect(sx-16, s.y-3, 12, 6);
+    ctx.fillStyle='#ffca3a'; ctx.beginPath(); ctx.arc(sx,s.y,8,0,7); ctx.fill();
+    ctx.fillStyle='#ff6b2a'; ctx.beginPath(); ctx.arc(sx,s.y,4.5,0,7); ctx.fill(); }
+  // Ziel-Fahne
+  const zx = jr.endX - jr.worldX;
+  if(zx<W+40){ ctx.fillStyle='#5a4632'; ctx.fillRect(zx, 200, 8, 180); ctx.fillStyle='#e03a5a'; ctx.fillRect(zx+8, 200, 60, 40); text('🏁', zx+38, 220, 30); }
+
+  // Held
+  heldZeichnen(jr.x, jr.y, 60, 1);
+
+  // HUD
+  text('♦ '+jr.diamGesammelt, 20, 78, 24,'#204060','left');
+  // Sprung-Anzeige (rechts, über dem Feuer-Knopf)
+  ctx.fillStyle='rgba(0,0,0,0.28)'; rr(W-240,H-84,220,26,8); ctx.fill();
+  text('⬆ Tippen = Sprung / Doppelsprung', W-130, H-71, 15, '#fff');
+  for(let i=0;i<2;i++){ ctx.fillStyle = i<jr.jumpsLeft ? '#63bf44' : 'rgba(255,255,255,0.25)'; ctx.fillRect(W-236+i*15, H-52, 11,11); }
+  // Feuer-Knopf
+  knopf('feuer', W-172, H-150, 152, 60, '🔥 Schießen', jr.cool>0?'#a33a2a':'#e05a3a','#fff',22);
+
+  zurueckKnopf();
+
+  // Tod / Fertig-Overlay
+  if(!jr.lebt){
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
+    if(jr.fertig){ text('★ GESCHAFFT! ★', W/2, 150, 44, '#ffe86b'); text('+'+(jr.diamGesammelt+2)+' Diamanten', W/2, 200, 28, '#fff'); }
+    else { text('Ups! Nochmal?', W/2, 160, 40, '#fff'); }
+    knopf('nochmal', W/2-170, 250, 160, 64, '🔄 Nochmal', '#5aa54a','#fff',24);
+    knopf('menu2',   W/2+10,  250, 160, 64, '🏠 Menü', '#3a86e0','#fff',24);
+    if(pointer.justDown){
+      if(klick('nochmal')){ if(darfSpielen()){ zahleSpiel(); if(jr.custom) spieleGebauteWelt(); else starteJumpRun(); } else { sprich('Sammle erst wieder Diamanten beim Lernen.'); scene='menu'; } }
+      if(klick('menu2')){ scene = jr.custom ? 'bauen' : 'menu'; }
+    }
+  }
+
+  if(pointer.justDown && jr.lebt && klick('zurueck')){ scene='menu'; }
+}
+
+/* ================================================================
+   6) BAU-MODUS  –  eigene Drachenwelt bauen
+   ================================================================ */
+let builder = { grid:null, C:28, R:7, tool:1, scroll:0 };
+const paletteTools = [
+  { id:'block',   v:1, icon:'🟩', name:'Block' },
+  { id:'stein',   v:5, icon:'🪨', name:'Stein' },
+  { id:'lava',    v:6, icon:'🌋', name:'Lava' },
+  { id:'feder',   v:7, icon:'🔼', name:'Feder' },
+  { id:'diamant', v:2, icon:'💎', name:'Dia' },
+  { id:'drache',  v:3, icon:'🐉', name:'Drache' },
+  { id:'ziel',    v:4, icon:'🏁', name:'Ziel' },
+  { id:'radierer',v:0, icon:'🧽', name:'Löschen' },
+];
+function starteBauen(){
+  let g=null;
+  try{ const s=localStorage.getItem('mc_bauwelt'); if(s) g=JSON.parse(s); }catch(e){}
+  if(!g || !Array.isArray(g) || g.length!==builder.C){
+    g=[]; for(let c=0;c<builder.C;c++) g.push(new Array(builder.R).fill(0));
+    // kleine Beispiel-Plattform als Start
+    for(let c=0;c<3;c++) g[c][5]=1;
+  }
+  builder.grid=g; builder.scroll=0; builder.tool=1;
+}
+function bauen(){
+  himmel(); berge(builder.scroll); kopf('Bauen');
+  const gX=20, gY=104, cols=builder.C, rows=builder.R, cs=40, viewW=760;
+
+  // Werkzeug-Palette
+  const pw=90, ph=42, px0=19, py=56, pgap=6;
+  paletteTools.forEach((t,i)=>{
+    const bx=px0+i*(pw+pgap);
+    knopf('t_'+t.id, bx, py, pw, ph, t.icon+' '+t.name, builder.tool===t.v?'#ffb84d':'#5a6a7a','#fff',15);
+    if(builder.tool===t.v){ ctx.strokeStyle='#fff'; ctx.lineWidth=3; rr(bx,py,pw,ph,10); ctx.stroke(); }
+  });
+
+  // Bau-Gitter (mit Clipping + Scroll)
+  ctx.save(); rr(gX,gY,viewW,rows*cs,6); ctx.clip();
+  ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(gX,gY,viewW,rows*cs);
+  for(let c=0;c<cols;c++){
+    const cx=gX + c*cs - builder.scroll;
+    if(cx>gX+viewW || cx+cs<gX) continue;
+    for(let r=0;r<rows;r++){
+      const cy=gY+r*cs, v=builder.grid[c][r];
+      ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1; ctx.strokeRect(cx,cy,cs,cs);
+      if(v===1) grasBlock(cx,cy,cs);
+      else if(v===5) steinBlock(cx,cy,cs);
+      else if(v===6) lavaCell(cx,cy,cs);
+      else if(v===7){ grasBlock(cx,cy,cs); federDraw(cx,cy,cs); }
+      else if(v===2){ ctx.save(); ctx.translate(cx+20,cy+20); ctx.rotate(Math.PI/4); ctx.fillStyle='#2f8fd0'; ctx.fillRect(-11,-11,22,22); ctx.fillStyle='#7ec8ff'; ctx.fillRect(-9,-9,18,18); ctx.fillStyle='#eaf7ff'; ctx.fillRect(-7,-7,5,5); ctx.restore(); }
+      else if(v===3) drache(cx-6,cy+2,44, Math.floor(anim/8)%2===0);
+      else if(v===4){ ctx.fillStyle='#5a4632'; ctx.fillRect(cx+7,cy+3,5,cs-6); text('🏁',cx+24,cy+16,22); }
+    }
+  }
+  ctx.restore();
+  if(builder.scroll<40){ ctx.fillStyle='rgba(90,165,74,0.9)'; rr(gX,gY,74,24,6); ctx.fill(); text('START',gX+37,gY+12,15,'#fff'); }
+  text('Werkzeug wählen und ins Feld tippen (zum Malen ziehen)', W/2, 394, 14, '#204060');
+
+  // Aktions-Leiste
+  const by=402, bh=62;
+  knopf('scrollL',  20, by,  86, bh, '◀', '#3a86e0','#fff',30);
+  knopf('scrollR', 112, by,  86, bh, '▶', '#3a86e0','#fff',30);
+  knopf('loeschen',204, by, 140, bh, '🗑️ Leeren', '#e05a5a','#fff',20);
+  knopf('speichern',350,by, 150, bh, '💾 Speichern', '#5aa54a','#fff',20);
+  knopf('spielen', 506, by, 158, bh, '▶️ Spielen', '#c98a2a','#fff',24);
+  knopf('bmenu',   670, by, 110, bh, '⬅ Menü', '#3a86e0','#fff',20);
+  flashZeigen();
+
+  // Blöcke setzen (auch beim Ziehen)
+  const inGrid = pointer.x>gX && pointer.x<gX+viewW && pointer.y>gY && pointer.y<gY+rows*cs;
+  if(pointer.down && inGrid){
+    const col=Math.floor((pointer.x - gX + builder.scroll)/cs);
+    const row=Math.floor((pointer.y - gY)/cs);
+    if(col>=0&&col<cols&&row>=0&&row<rows){
+      if(builder.tool===4){ for(let c=0;c<cols;c++)for(let r=0;r<rows;r++) if(builder.grid[c][r]===4) builder.grid[c][r]=0; builder.grid[col][row]=4; }
+      else builder.grid[col][row]=builder.tool;
+    }
+  }
+  if(pointer.justDown){
+    for(const t of paletteTools){ if(klick('t_'+t.id)) builder.tool=t.v; }
+    if(klick('scrollL')) builder.scroll=Math.max(0, builder.scroll-160);
+    if(klick('scrollR')) builder.scroll=Math.min(cols*cs-viewW, builder.scroll+160);
+    if(klick('loeschen')){ for(let c=0;c<cols;c++) builder.grid[c].fill(0); }
+    if(klick('speichern')){ try{ localStorage.setItem('mc_bauwelt', JSON.stringify(builder.grid)); }catch(e){} zeigeFlash(true,'Welt gespeichert!'); }
+    if(klick('spielen')){ if(darfSpielen()){ zahleSpiel(); spieleGebauteWelt(); } else { zeigeFlash(false,'Erst '+KOSTEN+' ♦ beim Lernen sammeln!'); } }
+    if(klick('bmenu')){ scene='menu'; }
+  }
+}
+function spieleGebauteWelt(){
+  starteJumpRun();
+  jr.custom=true;
+  jr.plattformen=[{x:0,y:300,w:240,mat:'gras'}];  // sichere Start-Plattform
+  jr.diamanten=[]; jr.gegner=[]; jr.lava=[]; jr.schuesse=[];
+  const base=300; let maxX=base, goalX=null;
+  const C=builder.C, R=builder.R, g=builder.grid;
+  for(let c=0;c<C;c++) for(let r=0;r<R;r++){
+    const v=g[c][r]; if(!v) continue;
+    const x=base + c*40, y=104 + r*40;
+    if(v===1){ jr.plattformen.push({x,y,w:40,mat:'gras'}); }
+    else if(v===5){ jr.plattformen.push({x,y,w:40,mat:'stein'}); }
+    else if(v===7){ jr.plattformen.push({x,y,w:40,mat:'feder'}); }
+    else if(v===6){ jr.lava.push({x,y}); }
+    else if(v===2){ jr.diamanten.push({x:x+20,y:y+20,weg:false}); }
+    else if(v===3){ jr.gegner.push({x:x+20,y:y+20,baseY:y+20,t:Math.random()*6}); }
+    else if(v===4){ goalX=x; }
+    maxX=Math.max(maxX, x+40);
+  }
+  jr.endX = (goalX!==null ? goalX+40 : maxX+120);
+  scene='jumprun';
+}
+
+/* ================================================================
+   7) SPERRE (Passwort), NAMENSEINGABE, BESTENLISTE
+   ================================================================ */
+function sperre(){
+  himmel();
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
+  text('🕒 Zeit ist um!', W/2, 54, 34, '#ffe86b');
+  text('Ein Erwachsener gibt das Passwort ein,', W/2, 96, 19, '#fff');
+  text('um weiterzuspielen.', W/2, 120, 19, '#fff');
+  ctx.fillStyle='#fff'; rr(W/2-120,140,240,44,8); ctx.fill();
+  text(pinEingabe.replace(/./g,'●')||' ', W/2, 162, 26, '#111');
+  const nums=['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+  const kw=92, kh=52, gx=W/2-(3*kw+2*10)/2, gy=196;
+  nums.forEach((n,i)=>{
+    const x=gx+(i%3)*(kw+10), y=gy+Math.floor(i/3)*(kh+10);
+    knopf('p_'+n, x, y, kw, kh, n, n==='OK'?'#5aa54a':(n==='⌫'?'#e05a5a':'#5a6a7a'), '#fff', 24);
+  });
+  knopf('p_beenden', W/2-110, gy+4*(kh+10)+6, 220, 46, '⏻ Spiel beenden', '#c0392b', '#fff', 20);
+  flashZeigen();
+  if(pointer.justDown){
+    if(klick('p_beenden')){ if(!appBeenden()){ zeigeFlash(true,'Bitte App schließen'); } return; }
+    for(const n of nums){ if(klick('p_'+n)){
+      if(n==='⌫') pinEingabe=pinEingabe.slice(0,-1);
+      else if(n==='OK'){
+        if(pinEingabe===ELTERN_PIN){ startZeit=Date.now(); pinEingabe=''; sndOk(); scene='menu'; }
+        else { zeigeFlash(false,'Falsches Passwort'); pinEingabe=''; }
+      } else if(pinEingabe.length<6) pinEingabe+=n;
+    }}
+  }
+}
+const tastenReihen = ['ABCDEFGHIJ','KLMNOPQRST','UVWXYZÄÖÜ'];
+function nameEingabe(){
+  himmel();
+  text('Super! 🎉 Trage deinen Namen ein', W/2, 54, 28, '#123');
+  text('Punkte: '+pendingScore+' ♦', W/2, 92, 22, '#8a3ae0');
+  ctx.fillStyle='#fff'; rr(W/2-200,112,400,50,10); ctx.fill();
+  ctx.strokeStyle='#3a86e0'; ctx.lineWidth=3; rr(W/2-200,112,400,50,10); ctx.stroke();
+  text(eingabeName+((anim%40<20)?'|':''), W/2, 137, 28, '#111');
+  const kw=70, kh=44, ky=178;
+  tastenReihen.forEach((row,ri)=>{
+    const sx=(W - row.length*(kw+4))/2;
+    for(let ci=0;ci<row.length;ci++){
+      knopf('k_'+ri+'_'+ci, sx+ci*(kw+4), ky+ri*(kh+6), kw, kh, row[ci], '#5a6a7a','#fff',22);
+    }
+  });
+  const by=ky+3*(kh+6)+6;
+  knopf('space', W/2-250, by, 150, 50, 'Leer', '#5a6a7a','#fff',20);
+  knopf('del',   W/2-90,  by, 130, 50, '⌫ Weg', '#e05a5a','#fff',20);
+  knopf('okname',W/2+52,  by, 200, 50, '✔ Fertig', '#5aa54a','#fff',22);
+  flashZeigen();
+  if(pointer.justDown){
+    tastenReihen.forEach((row,ri)=>{ for(let ci=0;ci<row.length;ci++){ if(klick('k_'+ri+'_'+ci) && eingabeName.length<10){ eingabeName+=row[ci]; beep(600,0.04); } } });
+    if(klick('space') && eingabeName.length<10 && eingabeName.length>0) eingabeName+=' ';
+    if(klick('del')) eingabeName=eingabeName.slice(0,-1);
+    if(klick('okname')){
+      const nm=eingabeName.trim()||'Kind';
+      letzterName=nm; try{ localStorage.setItem('mc_lastname',nm); }catch(e){}
+      speichereHighscore(nm, pendingScore); sndOk();
+      scene='bestenliste';
+    }
+  }
+}
+function bestenliste(){
+  himmel();
+  text('🏆 Bestenliste', W/2, 48, 38, '#123');
+  ctx.fillStyle='rgba(255,255,255,0.92)'; rr(80,84,640,330,12); ctx.fill();
+  text('Platz', 110, 108, 16, '#666','left'); text('Name', 210, 108, 16,'#666','left'); text('Punkte', 470, 108, 16,'#666','left'); text('Datum', 590, 108, 16,'#666','left');
+  if(highscore.length===0){ text('Noch keine Einträge – spiel den Drachensprung!', W/2, 250, 20, '#666'); }
+  highscore.slice(0,8).forEach((e,i)=>{
+    const y=138+i*33;
+    text(i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.', 110, y, 20, '#111','left');
+    text(e.name, 210, y, 20, '#111','left');
+    text(e.punkte+' ♦', 470, y, 20, '#8a3ae0','left');
+    text(e.datum, 590, y, 18, '#555','left');
+  });
+  knopf('blmenu', W/2-90, 424, 180, 46, '⬅ Menü', '#3a86e0','#fff',22);
+  if(pointer.justDown && klick('blmenu')) scene='menu';
+}
+
+/* ---------- gemeinsame UI-Teile ---------- */
+function zurueckKnopf(){ knopf('zurueck', 12, H-52, 130, 40, '⬅ Menü', '#3a86e0', '#fff', 20); }
+function flashZeigen(){
+  if(flash.t>0 && flash.t<900){
+    flash.t--;
+    ctx.fillStyle = flash.ok ? 'rgba(90,165,74,0.92)':'rgba(224,58,90,0.92)';
+    rr(W/2-160, H-70, 320, 46, 10); ctx.fill();
+    text(flash.msg, W/2, H-47, 24, '#fff');
+  }
+}
+
+/* ---------- Spielstart-Router ---------- */
+function starte(id){
+  flash.t=0;
+  if(id==='lesen') starteLesen();
+  else if(id==='schreiben') starteSchreiben();
+  else if(id==='rechnen') starteRechnen();
+  else if(id==='jumprun') starteJumpRun();
+}
+
+/* ================================================================
+   HAUPT-SCHLEIFE
+   ================================================================ */
+function loop(){
+  anim++;
+  buttons.length=0;
+  ctx.clearRect(0,0,W,H);
+  if(scene!=='sperre' && scene!=='nameEingabe' && Date.now()-startZeit>SPIELZEIT_MS){ scene='sperre'; pinEingabe=''; sprich('Die Spielzeit ist zu Ende.'); }
+  if(scene==='menu') menu();
+  else if(scene==='lesen') lesen();
+  else if(scene==='schreiben') schreiben();
+  else if(scene==='rechnen') rechnen();
+  else if(scene==='jumprun') jumpRun();
+  else if(scene==='bauen') bauen();
+  else if(scene==='sperre') sperre();
+  else if(scene==='nameEingabe') nameEingabe();
+  else if(scene==='bestenliste') bestenliste();
+  pointer.justDown=false;
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
