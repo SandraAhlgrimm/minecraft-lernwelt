@@ -590,7 +590,7 @@ function starteJumpRun(level){
   jr = {
     x:120, y:240, vy:0, onGround:true, jumpsLeft:2,
     worldX:0, speed:cfg.speed, lebt:true, level,
-    diamGesammelt:0,
+    diamGesammelt:0, leben:3, unverwundbar:0, safeX:0, safeY:240,
     plattformen:[], diamanten:[], gegner:[], lava:[], schuesse:[], cool:0, custom:false, fertig:false,
   };
   // Start-Plattform direkt unter dem Helden (kein Loch am Anfang)
@@ -615,6 +615,17 @@ function starteJumpRun(level){
   }
   jr.endX = px + 100;
 }
+// Held verletzt: Leben abziehen, ggf. an sicherer Stelle wiederbeleben
+function heldVerletzt(){
+  if(jr.unverwundbar>0 || !jr.lebt) return;
+  jr.leben--;
+  sndFail();
+  if(jr.leben<=0){ jr.leben=0; jr.lebt=false; return; }
+  // Wiederbeleben auf der zuletzt sicheren Plattform, kurz unverwundbar
+  jr.worldX = jr.safeX;
+  jr.y = jr.safeY; jr.vy = 0; jr.onGround=false; jr.jumpsLeft=2;
+  jr.unverwundbar = 90;
+}
 function jumpRun(){
   himmel();
   berge(jr.worldX);
@@ -637,7 +648,8 @@ function jumpRun(){
     }
     // Doppelsprung: max. 2 Sprünge, bevor der Boden berührt wird
     if(tippSprung && jr.jumpsLeft>0){ jr.vy = jr.onGround ? -12.5 : -11.2; jr.jumpsLeft--; jr.onGround=false; sndJump(); }
-    jr.vy += 0.6; jr.y += jr.vy;
+    jr.vy += 0.5; jr.y += jr.vy;
+    if(jr.unverwundbar>0) jr.unverwundbar--;
     jr.onGround=false;
     // Projektile bewegen
     for(const s of jr.schuesse) s.x += s.vx;
@@ -650,16 +662,16 @@ function jumpRun(){
       if(px+30 > sx && px < sx + p.w){
         if(jr.vy>=0 && jr.y+60 >= p.y && jr.y+60 <= p.y + 30){
           if(p.mat==='feder'){ jr.y=p.y-60; jr.vy=-18.5; jr.jumpsLeft=2; jr.onGround=false; beep(900,0.08); setTimeout(()=>beep(1350,0.1),70); }
-          else { jr.y = p.y - 60; jr.vy = 0; jr.onGround=true; jr.jumpsLeft=2; }
+          else { jr.y = p.y - 60; jr.vy = 0; jr.onGround=true; jr.jumpsLeft=2; jr.safeX = jr.worldX; jr.safeY = p.y - 60; }
         }
       }
     }
     // Runtergefallen?
-    if(jr.y > H+60){ jr.lebt=false; sndFail(); }
-    // Lava berühren = verloren
+    if(jr.y > H+60){ heldVerletzt(); }
+    // Lava berühren = Leben verlieren
     for(const L of jr.lava){
       const pxw=jr.worldX+jr.x;
-      if(pxw+30 > L.x && pxw < L.x+40 && jr.y+58 > L.y+8 && jr.y < L.y+40){ jr.lebt=false; sndFail(); }
+      if(pxw+30 > L.x && pxw < L.x+40 && jr.y+58 > L.y+8 && jr.y < L.y+40){ heldVerletzt(); }
     }
     // Diamanten
     for(const d of jr.diamanten){
@@ -682,7 +694,7 @@ function jumpRun(){
       g.t += 0.05; const gy = g.baseY + Math.sin(g.t)*30;
       const sx=g.x - jr.worldX;
       if(sx>-60 && sx<W+60 && Math.abs((jr.x+15)-sx)<34 && Math.abs((jr.y+30)-gy)<34){
-        jr.lebt=false; sndFail();
+        heldVerletzt();
       }
     }
     // Ziel erreicht
@@ -738,11 +750,13 @@ function jumpRun(){
   const zx = jr.endX - jr.worldX;
   if(zx<W+40){ ctx.fillStyle='#5a4632'; ctx.fillRect(zx, 200, 8, 180); ctx.fillStyle='#e03a5a'; ctx.fillRect(zx+8, 200, 60, 40); text('🏁', zx+38, 220, 30); }
 
-  // Held
-  heldZeichnen(jr.x, jr.y, 60, 1);
+  // Held (blinkt kurz nach einem Treffer)
+  if(!(jr.unverwundbar>0 && Math.floor(anim/4)%2===0)) heldZeichnen(jr.x, jr.y, 60, 1);
 
   // HUD
   text('♦ '+jr.diamGesammelt, 20, 78, 24,'#204060','left');
+  // Leben (Herzen)
+  for(let i=0;i<3;i++) text(i<jr.leben?'❤️':'🤍', 24+i*30, 112, 22, '#000', 'left');
   if(!jr.custom) text(t('level',{n:jr.level}), W/2, 78, 22, '#204060');
   // Sprung-Anzeige (rechts, über dem Feuer-Knopf)
   ctx.fillStyle='rgba(0,0,0,0.28)'; rr(W-240,H-84,220,26,8); ctx.fill();
