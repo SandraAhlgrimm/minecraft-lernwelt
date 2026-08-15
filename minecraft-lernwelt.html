@@ -36,9 +36,81 @@ function resize(){
 window.addEventListener('resize', resize); resize();
 
 /* ---------- Fortschritt speichern ---------- */
-let save = { diamanten: 0, sterne: 0 };
+let save = { diamanten: 0, sterne: 0, maxLevel: 1 };
 try { const s = localStorage.getItem('mc_lernwelt'); if(s) save = JSON.parse(s); } catch(e){}
+if(!save.maxLevel) save.maxLevel = 1;
 function speichern(){ try{ localStorage.setItem('mc_lernwelt', JSON.stringify(save)); }catch(e){} }
+
+/* ================================================================
+   INTERNATIONALISIERUNG  (Deutsch / English / Français)
+   ================================================================ */
+let LANG = 'de';
+try{ LANG = localStorage.getItem('mc_lang') || 'de'; }catch(e){}
+const SPRACHEN = ['de','en','fr'];
+const FLAG = { de:'🇩🇪 DE', en:'🇬🇧 EN', fr:'🇫🇷 FR' };
+const TTS_CODE = { de:'de-DE', en:'en-US', fr:'fr-FR' };
+function naechsteSprache(){ const i=SPRACHEN.indexOf(LANG); LANG=SPRACHEN[(i+1)%SPRACHEN.length]; try{localStorage.setItem('mc_lang',LANG);}catch(e){} }
+const I18N = {
+  de:{
+    lernwelt:'LERNWELT', lesen:'Lesen', schreiben:'Schreiben', rechnen:'Rechnen',
+    drachensprung:'Drachensprung', drachenwelt:'Drachenwelt', menu:'Menü',
+    collectHint:'Sammle {n} ♦ beim Lesen, Schreiben, Rechnen – dann Drachensprung!',
+    bauenBtn:'🔨  Baue deine Drachenwelt!', bestenlisteBtn:'🏆 Bestenliste',
+    firstCollect:'Erst {n} ♦ sammeln!', firstCollectSpeak:'Sammle erst fünf Diamanten beim Lesen, Schreiben oder Rechnen.',
+    readWordSpeak:'Lies das Wort. {w}', super1:'Super! +1 ♦', tryAgain:'Versuch es nochmal', correctSpeak:'Richtig! {w}',
+    whichLetter:'Welcher Buchstabe fehlt?', whichLetterSpeak:'Welcher Buchstabe fehlt? {w}', correct1:'Richtig! +1 ♦', notQuite:'Nicht ganz...',
+    exact:'Genau! +1 ♦', countAgain:'Zähl nochmal nach', plus:'plus', minus:'minus', correctNumSpeak:'Richtig, {n}',
+    jumpHint:'⬆ Tippen = Sprung / Doppelsprung', shoot:'🔥 Schießen', geschafft:'★ GESCHAFFT! ★', gotDiamonds:'+{n} Diamanten',
+    ups:'Ups! Nochmal?', nochmal:'🔄 Nochmal', winSpeak:'Super gemacht! Trage deinen Namen ein.', collectAgainSpeak:'Sammle erst wieder Diamanten beim Lernen.',
+    level:'Level {n}', chooseLevel:'Wähle ein Level', locked:'Dieses Level ist noch gesperrt!', costLine:'Ein Spiel kostet {n} ♦',
+    timeUp:'🕒 Zeit ist um!', pwLine1:'Ein Erwachsener gibt das Passwort ein,', pwLine2:'um weiterzuspielen.', wrongPw:'Falsches Passwort', endGame:'⏻ Spiel beenden', closeHint:'Bitte App schließen', timeUpSpeak:'Die Spielzeit ist zu Ende.',
+    enterName:'Super! 🎉 Trage deinen Namen ein', points:'Punkte: {n} ♦', leer:'Leer', weg:'⌫ Weg', fertig:'✔ Fertig',
+    hsTitle:'🏆 Bestenliste', platz:'Platz', hsName:'Name', punkte:'Punkte', datum:'Datum', hsEmpty:'Noch keine Einträge – spiel den Drachensprung!',
+    bauenTitle:'Bauen', toolBlock:'Block', toolStein:'Stein', toolLava:'Lava', toolFeder:'Feder', toolDia:'Dia', toolDrache:'Drache', toolZiel:'Ziel', toolLoeschen:'Löschen',
+    buildHint:'Werkzeug wählen und ins Feld tippen (zum Malen ziehen)', leeren:'🗑️ Leeren', speichernBtn:'💾 Speichern', spielen:'▶️ Spielen', worldSaved:'Welt gespeichert!', needCollect:'Erst {n} ♦ beim Lernen sammeln!'
+  },
+  en:{
+    lernwelt:'LEARNING WORLD', lesen:'Reading', schreiben:'Writing', rechnen:'Math',
+    drachensprung:'Dragon Jump', drachenwelt:'Dragon World', menu:'Menu',
+    collectHint:'Collect {n} ♦ by reading, writing, math – then Dragon Jump!',
+    bauenBtn:'🔨  Build your Dragon World!', bestenlisteBtn:'🏆 High Scores',
+    firstCollect:'Collect {n} ♦ first!', firstCollectSpeak:'Collect five diamonds first by reading, writing or math.',
+    readWordSpeak:'Read the word. {w}', super1:'Great! +1 ♦', tryAgain:'Try again', correctSpeak:'Correct! {w}',
+    whichLetter:'Which letter is missing?', whichLetterSpeak:'Which letter is missing? {w}', correct1:'Correct! +1 ♦', notQuite:'Not quite...',
+    exact:'Exactly! +1 ♦', countAgain:'Count again', plus:'plus', minus:'minus', correctNumSpeak:'Correct, {n}',
+    jumpHint:'⬆ Tap = Jump / Double Jump', shoot:'🔥 Shoot', geschafft:'★ YOU DID IT! ★', gotDiamonds:'+{n} Diamonds',
+    ups:'Oops! Again?', nochmal:'🔄 Again', winSpeak:'Well done! Enter your name.', collectAgainSpeak:'Collect diamonds by learning first.',
+    level:'Level {n}', chooseLevel:'Choose a level', locked:'This level is locked!', costLine:'One game costs {n} ♦',
+    timeUp:'🕒 Time is up!', pwLine1:'An adult enters the password', pwLine2:'to keep playing.', wrongPw:'Wrong password', endGame:'⏻ Quit game', closeHint:'Please close the app', timeUpSpeak:'Playtime is over.',
+    enterName:'Great! 🎉 Enter your name', points:'Points: {n} ♦', leer:'Space', weg:'⌫ Del', fertig:'✔ Done',
+    hsTitle:'🏆 High Scores', platz:'Rank', hsName:'Name', punkte:'Points', datum:'Date', hsEmpty:'No entries yet – play Dragon Jump!',
+    bauenTitle:'Build', toolBlock:'Block', toolStein:'Stone', toolLava:'Lava', toolFeder:'Spring', toolDia:'Gem', toolDrache:'Dragon', toolZiel:'Goal', toolLoeschen:'Erase',
+    buildHint:'Pick a tool and tap the grid (drag to paint)', leeren:'🗑️ Clear', speichernBtn:'💾 Save', spielen:'▶️ Play', worldSaved:'World saved!', needCollect:'Collect {n} ♦ by learning first!'
+  },
+  fr:{
+    lernwelt:'MONDE MAGIQUE', lesen:'Lecture', schreiben:'Écriture', rechnen:'Calcul',
+    drachensprung:'Saut du Dragon', drachenwelt:'Monde du Dragon', menu:'Menu',
+    collectHint:'Récolte {n} ♦ en lisant, écrivant, calculant – puis Saut du Dragon!',
+    bauenBtn:'🔨  Construis ton Monde du Dragon!', bestenlisteBtn:'🏆 Meilleurs',
+    firstCollect:"Récolte {n} ♦ d'abord!", firstCollectSpeak:"Récolte d'abord cinq diamants en lisant, écrivant ou calculant.",
+    readWordSpeak:'Lis le mot. {w}', super1:'Super! +1 ♦', tryAgain:'Essaie encore', correctSpeak:'Correct! {w}',
+    whichLetter:'Quelle lettre manque?', whichLetterSpeak:'Quelle lettre manque? {w}', correct1:'Correct! +1 ♦', notQuite:'Presque...',
+    exact:'Exact! +1 ♦', countAgain:'Compte encore', plus:'plus', minus:'moins', correctNumSpeak:'Correct, {n}',
+    jumpHint:'⬆ Touche = Saut / Double saut', shoot:'🔥 Tirer', geschafft:'★ RÉUSSI! ★', gotDiamonds:'+{n} Diamants',
+    ups:'Oups! Encore?', nochmal:'🔄 Encore', winSpeak:'Bravo! Écris ton nom.', collectAgainSpeak:'Récolte des diamants en apprenant.',
+    level:'Niveau {n}', chooseLevel:'Choisis un niveau', locked:'Ce niveau est verrouillé!', costLine:'Une partie coûte {n} ♦',
+    timeUp:'🕒 Temps écoulé!', pwLine1:'Un adulte entre le mot de passe', pwLine2:'pour continuer à jouer.', wrongPw:'Mauvais mot de passe', endGame:'⏻ Quitter', closeHint:"Ferme l'application", timeUpSpeak:'Le temps de jeu est terminé.',
+    enterName:'Super! 🎉 Écris ton nom', points:'Points: {n} ♦', leer:'Espace', weg:'⌫ Eff.', fertig:'✔ Fini',
+    hsTitle:'🏆 Meilleurs', platz:'Rang', hsName:'Nom', punkte:'Points', datum:'Date', hsEmpty:'Aucune entrée – joue au Saut du Dragon!',
+    bauenTitle:'Construire', toolBlock:'Bloc', toolStein:'Pierre', toolLava:'Lave', toolFeder:'Ressort', toolDia:'Gemme', toolDrache:'Dragon', toolZiel:'But', toolLoeschen:'Effacer',
+    buildHint:'Choisis un outil et touche la grille (glisse pour peindre)', leeren:'🗑️ Vider', speichernBtn:'💾 Sauver', spielen:'▶️ Jouer', worldSaved:'Monde sauvé!', needCollect:'Récolte {n} ♦ en apprenant!'
+  }
+};
+function t(k, p){
+  let s = (I18N[LANG] && I18N[LANG][k]!==undefined) ? I18N[LANG][k] : (I18N.de[k]!==undefined ? I18N.de[k] : k);
+  if(p){ for(const key in p){ s = s.split('{'+key+'}').join(p[key]); } }
+  return s;
+}
 
 /* ---------- Ton (kleine Beep-Töne, ohne Dateien) ---------- */
 let AC;
@@ -61,12 +133,15 @@ const sndCoin = ()=>{ beep(1050,0.06); setTimeout(()=>beep(1400,0.07),60); };
 /* ---------- Sprachausgabe (liest Deutsch vor) ---------- */
 function sprich(text){
   try{
-    // Auf dem Tablet (APK): native deutsche Vorlese-Stimme
-    if(window.AndroidBridge && typeof AndroidBridge.sprich==='function'){ AndroidBridge.sprich(text); return; }
+    // Auf dem Tablet (APK): native Vorlese-Stimme in der aktuellen Sprache
+    if(window.AndroidBridge && typeof AndroidBridge.sprich==='function'){
+      try{ AndroidBridge.sprich(text, TTS_CODE[LANG]||'de-DE'); }catch(e){ AndroidBridge.sprich(text); }
+      return;
+    }
     if(!('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'de-DE'; u.rate = 0.9; u.pitch = 1.1;
+    u.lang = TTS_CODE[LANG] || 'de-DE'; u.rate = 0.9; u.pitch = 1.1;
     speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -235,12 +310,19 @@ const ELTERN_PIN = '1144';         // Passwort für Erwachsene (hier änderbar)
 let highscore = [];
 try{ const hs=localStorage.getItem('mc_highscore'); if(hs) highscore=JSON.parse(hs); }catch(e){}
 let letzterName=''; try{ letzterName=localStorage.getItem('mc_lastname')||''; }catch(e){}
-let eingabeName='', pinEingabe='', pendingScore=0;
+let eingabeName='', pinEingabe='', pendingScore=0, pendingLevel=1;
+const LEVELS = [
+  {speed:2.6, count:11, gap:64, gapX:30, step:1, enemy:0.25, dia:0.78, stein:false, feder:false, lava:false},
+  {speed:2.9, count:13, gap:70, gapX:40, step:1, enemy:0.40, dia:0.72, stein:true,  feder:true,  lava:false},
+  {speed:3.2, count:15, gap:78, gapX:45, step:2, enemy:0.52, dia:0.66, stein:true,  feder:true,  lava:true},
+  {speed:3.5, count:17, gap:86, gapX:50, step:2, enemy:0.62, dia:0.60, stein:true,  feder:true,  lava:true},
+  {speed:3.9, count:19, gap:92, gapX:55, step:2, enemy:0.72, dia:0.55, stein:true,  feder:true,  lava:true},
+];
 function darfSpielen(){ return save.diamanten >= KOSTEN; }
 function zahleSpiel(){ save.diamanten -= KOSTEN; if(save.diamanten<0) save.diamanten=0; speichern(); }
 function restZeitStr(){ const ms=Math.max(0, SPIELZEIT_MS-(Date.now()-startZeit)); const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); return m+':'+(s<10?'0':'')+s; }
 function heuteStr(){ const d=new Date(), p=n=>(n<10?'0':'')+n; return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear(); }
-function speichereHighscore(name,punkte){ highscore.push({name:name||'Kind', punkte, datum:heuteStr()}); highscore.sort((a,b)=>b.punkte-a.punkte); highscore=highscore.slice(0,10); try{localStorage.setItem('mc_highscore',JSON.stringify(highscore));}catch(e){} }
+function speichereHighscore(name,punkte,level){ highscore.push({name:name||'Kind', punkte, level:level||1, datum:heuteStr()}); highscore.sort((a,b)=>b.punkte-a.punkte); highscore=highscore.slice(0,10); try{localStorage.setItem('mc_highscore',JSON.stringify(highscore));}catch(e){} }
 function zeigeFlash(ok,msg){ flash.t=60; flash.ok=ok; flash.msg=msg; if(ok){sndOk();} else {sndFail();} }
 
 function belohnung(diam){ save.diamanten += diam; save.sterne += 1; speichern(); }
@@ -275,18 +357,19 @@ function kopf(titel){
    1) HAUPTMENÜ / WELTKARTE
    ================================================================ */
 const spiele = [
-  { id:'lesen',    name:'Lesen',    farbe:'#e0813a', icon:'📖' },
-  { id:'schreiben',name:'Schreiben',farbe:'#3a86e0', icon:'✏️' },
-  { id:'rechnen',  name:'Rechnen',  farbe:'#8a3ae0', icon:'➕' },
-  { id:'jumprun',  name:'Drachensprung', farbe:'#e03a5a', icon:'🐉' },
+  { id:'lesen',    farbe:'#e0813a', icon:'📖' },
+  { id:'schreiben',farbe:'#3a86e0', icon:'✏️' },
+  { id:'rechnen',  farbe:'#8a3ae0', icon:'➕' },
+  { id:'jumprun',  farbe:'#e03a5a', icon:'🐉' },
 ];
+function spielName(id){ return id==='jumprun' ? t('drachensprung') : t(id); }
 function menu(){
   himmel();
   // Titel-Banner
   text('MINECRAFT', W/2, 70, 54, '#3a3a3a'); ctx.fillStyle='#5aa54a';
   text('MINECRAFT', W/2-3, 67, 54, '#6bd44a');
-  text('LERNWELT', W/2, 118, 40, '#3a3a3a');
-  text('LERNWELT', W/2-2, 116, 40, '#ffd23a');
+  text(t('lernwelt'), W/2, 118, 36, '#3a3a3a');
+  text(t('lernwelt'), W/2-2, 116, 36, '#ffd23a');
 
   heldZeichnen(70, 150, 90, Math.sin(anim*0.05)>0?1:-1);
   drache(W-190, 150+Math.sin(anim*0.06)*8, 130, Math.floor(anim/12)%2===0);
@@ -294,6 +377,8 @@ function menu(){
   // Zähler oben
   text('♦ '+save.diamanten, 16, 20, 22, '#123', 'left');
   text('🕒 '+restZeitStr(), W-16, 20, 20, '#123', 'right');
+  // Sprachumschalter
+  knopf('lang', W/2-46, 8, 92, 30, FLAG[LANG], '#2a6a4a', '#fff', 17);
 
   // 4 große Knöpfe
   const bw=330, bh=70, gx=(W-bw*2-30)/2, gy=200;
@@ -301,24 +386,25 @@ function menu(){
     const x=gx+(i%2)*(bw+30), y=gy+Math.floor(i/2)*(bh+22);
     if(s.id==='jumprun'){
       const frei=darfSpielen();
-      const label = frei ? (s.icon+'  Drachensprung  ▶') : ('🔒 Drachensprung  '+KOSTEN+'♦');
-      knopf(s.id, x, y, bw, bh, label, frei?s.farbe:'#7a5a3a', '#fff', frei?27:23);
+      const label = frei ? (s.icon+'  '+t('drachensprung')+'  ▶') : ('🔒 '+t('drachensprung')+'  '+KOSTEN+'♦');
+      knopf(s.id, x, y, bw, bh, label, frei?s.farbe:'#7a5a3a', '#fff', frei?26:22);
     } else {
-      knopf(s.id, x, y, bw, bh, s.icon+'   '+s.name, s.farbe, '#fff', 30);
+      knopf(s.id, x, y, bw, bh, s.icon+'   '+spielName(s.id), s.farbe, '#fff', 30);
     }
   });
-  if(!darfSpielen()) text('Sammle '+KOSTEN+' ♦ beim Lesen, Schreiben, Rechnen – dann Drachensprung!', W/2, 372, 16, '#7a3a1a');
+  if(!darfSpielen()) text(t('collectHint',{n:KOSTEN}), W/2, 372, 15, '#7a3a1a');
 
-  knopf('bauen', 40, 392, 430, 54, '🔨  Baue deine Drachenwelt!', '#c98a2a', '#fff', 22);
-  knopf('bestenliste', 490, 392, 270, 54, '🏆 Bestenliste', '#3a86e0', '#fff', 22);
+  knopf('bauen', 40, 392, 430, 54, t('bauenBtn'), '#c98a2a', '#fff', 20);
+  knopf('bestenliste', 490, 392, 270, 54, t('bestenlisteBtn'), '#3a86e0', '#fff', 20);
   flashZeigen();
 
   if(pointer.justDown){
+    if(klick('lang')){ naechsteSprache(); return; }
     for(const s of spiele){
       if(klick(s.id)){
         if(s.id==='jumprun'){
-          if(darfSpielen()){ zahleSpiel(); starteJumpRun(); scene='jumprun'; }
-          else { zeigeFlash(false,'Erst '+KOSTEN+' ♦ sammeln!'); sprich('Sammle erst fünf Diamanten beim Lesen, Schreiben oder Rechnen.'); }
+          if(darfSpielen()){ scene='levelwahl'; }
+          else { zeigeFlash(false,t('firstCollect',{n:KOSTEN})); sprich(t('firstCollectSpeak')); }
         } else { scene=s.id; starte(s.id); }
         return;
       }
@@ -331,27 +417,54 @@ function menu(){
 /* ================================================================
    2) LESEN  –  Wort lesen, passendes Emoji/Bild wählen
    ================================================================ */
-const leseAufgaben = [
-  { wort:'HUND',  richtig:'🐶', falsch:['🐱','🐟','🐦'] },
-  { wort:'KATZE', richtig:'🐱', falsch:['🐶','🐮','🐷'] },
-  { wort:'BAUM',  richtig:'🌳', falsch:['🌸','🍎','⭐'] },
-  { wort:'APFEL', richtig:'🍎', falsch:['🍌','🥕','🍇'] },
-  { wort:'SONNE', richtig:'☀️', falsch:['🌙','⛅','❄️'] },
-  { wort:'FISCH', richtig:'🐟', falsch:['🐸','🐝','🦋'] },
-  { wort:'HAUS',  richtig:'🏠', falsch:['🚗','⛵','🚂'] },
-  { wort:'BLUME', richtig:'🌸', falsch:['🌵','🍀','🌰'] },
-  { wort:'DRACHE',richtig:'🐉', falsch:['🐍','🦎','🐢'] },
-  { wort:'STERN', richtig:'⭐', falsch:['☁️','🌈','💧'] },
-];
+const leseAufgabenAll = {
+  de:[
+    { wort:'HUND',  richtig:'🐶', falsch:['🐱','🐟','🐦'] },
+    { wort:'KATZE', richtig:'🐱', falsch:['🐶','🐮','🐷'] },
+    { wort:'BAUM',  richtig:'🌳', falsch:['🌸','🍎','⭐'] },
+    { wort:'APFEL', richtig:'🍎', falsch:['🍌','🥕','🍇'] },
+    { wort:'SONNE', richtig:'☀️', falsch:['🌙','⛅','❄️'] },
+    { wort:'FISCH', richtig:'🐟', falsch:['🐸','🐝','🦋'] },
+    { wort:'HAUS',  richtig:'🏠', falsch:['🚗','⛵','🚂'] },
+    { wort:'BLUME', richtig:'🌸', falsch:['🌵','🍀','🌰'] },
+    { wort:'DRACHE',richtig:'🐉', falsch:['🐍','🦎','🐢'] },
+    { wort:'STERN', richtig:'⭐', falsch:['☁️','🌈','💧'] },
+  ],
+  en:[
+    { wort:'DOG',   richtig:'🐶', falsch:['🐱','🐟','🐦'] },
+    { wort:'CAT',   richtig:'🐱', falsch:['🐶','🐮','🐷'] },
+    { wort:'TREE',  richtig:'🌳', falsch:['🌸','🍎','⭐'] },
+    { wort:'APPLE', richtig:'🍎', falsch:['🍌','🥕','🍇'] },
+    { wort:'SUN',   richtig:'☀️', falsch:['🌙','⛅','❄️'] },
+    { wort:'FISH',  richtig:'🐟', falsch:['🐸','🐝','🦋'] },
+    { wort:'HOUSE', richtig:'🏠', falsch:['🚗','⛵','🚂'] },
+    { wort:'FLOWER',richtig:'🌸', falsch:['🌵','🍀','🌰'] },
+    { wort:'DRAGON',richtig:'🐉', falsch:['🐍','🦎','🐢'] },
+    { wort:'STAR',  richtig:'⭐', falsch:['☁️','🌈','💧'] },
+  ],
+  fr:[
+    { wort:'CHIEN', richtig:'🐶', falsch:['🐱','🐟','🐦'] },
+    { wort:'CHAT',  richtig:'🐱', falsch:['🐶','🐮','🐷'] },
+    { wort:'ARBRE', richtig:'🌳', falsch:['🌸','🍎','⭐'] },
+    { wort:'POMME', richtig:'🍎', falsch:['🍌','🥕','🍇'] },
+    { wort:'SOLEIL',richtig:'☀️', falsch:['🌙','⛅','❄️'] },
+    { wort:'POISSON',richtig:'🐟',falsch:['🐸','🐝','🦋'] },
+    { wort:'MAISON',richtig:'🏠', falsch:['🚗','⛵','🚂'] },
+    { wort:'FLEUR', richtig:'🌸', falsch:['🌵','🍀','🌰'] },
+    { wort:'DRAGON',richtig:'🐉', falsch:['🐍','🦎','🐢'] },
+    { wort:'ETOILE',richtig:'⭐', falsch:['☁️','🌈','💧'] },
+  ],
+};
 let lese = {};
 function starteLesen(){
-  const a = leseAufgaben[Math.floor(Math.random()*leseAufgaben.length)];
+  const liste = leseAufgabenAll[LANG] || leseAufgabenAll.de;
+  const a = liste[Math.floor(Math.random()*liste.length)];
   const opts = [a.richtig, ...a.falsch].sort(()=>Math.random()-0.5);
   lese = { a, opts };
-  setTimeout(()=>sprich('Lies das Wort. '+a.wort), 300);
+  setTimeout(()=>sprich(t('readWordSpeak',{w:a.wort})), 300);
 }
 function lesen(){
-  himmel(); boden(H-80); kopf('Lesen');
+  himmel(); boden(H-80); kopf(t('lesen'));
   ctx.fillStyle='rgba(255,255,255,0.92)'; rr(W/2-200,80,400,90,14); ctx.fill();
   text(lese.a.wort, W/2, 125, 60, '#e0813a');
   knopf('hoer', W/2+150, 92, 60, 60, '🔊', '#3a86e0', '#fff', 30);
@@ -368,8 +481,8 @@ function lesen(){
     if(klick('hoer')) sprich(lese.a.wort);
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===lese.a.richtig){ belohnung(1); zeigeFlash(true,'Super! +1 ♦'); sprich('Richtig! '+lese.a.wort); setTimeout(starteLesen,3500); }
-      else { zeigeFlash(false,'Versuch es nochmal'); }
+      if(opts[i]===lese.a.richtig){ belohnung(1); zeigeFlash(true,t('super1')); sprich(t('correctSpeak',{w:lese.a.wort})); setTimeout(starteLesen,3500); }
+      else { zeigeFlash(false,t('tryAgain')); }
     }}
   }
 }
@@ -377,10 +490,15 @@ function lesen(){
 /* ================================================================
    3) SCHREIBEN  –  fehlenden Buchstaben ergänzen
    ================================================================ */
-const schreibWorte = ['HUND','KATZE','MAUS','BAUM','HAUS','SONNE','MOND','FISCH','BALL','BLUME','DRACHE','STERN','KUH','IGEL','ENTE'];
+const schreibWorteAll = {
+  de:['HUND','KATZE','MAUS','BAUM','HAUS','SONNE','MOND','FISCH','BALL','BLUME','DRACHE','STERN','KUH','IGEL','ENTE'],
+  en:['DOG','CAT','MOUSE','TREE','HOUSE','SUN','MOON','FISH','BALL','STAR','DRAGON','FROG','DUCK','BEAR','BIRD'],
+  fr:['CHIEN','CHAT','SOURIS','ARBRE','MAISON','SOLEIL','LUNE','POISSON','BALLON','FLEUR','DRAGON','ETOILE','VACHE','CANARD','OURS'],
+};
 let schr = {};
 function starteSchreiben(){
-  const w = schreibWorte[Math.floor(Math.random()*schreibWorte.length)];
+  const liste = schreibWorteAll[LANG] || schreibWorteAll.de;
+  const w = liste[Math.floor(Math.random()*liste.length)];
   const pos = Math.floor(Math.random()*w.length);
   const richtig = w[pos];
   const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -388,11 +506,11 @@ function starteSchreiben(){
   while(set.size<4){ set.add(alphabet[Math.floor(Math.random()*26)]); }
   const opts=[...set].sort(()=>Math.random()-0.5);
   schr={ w, pos, richtig, opts };
-  setTimeout(()=>sprich('Welcher Buchstabe fehlt? '+w),300);
+  setTimeout(()=>sprich(t('whichLetterSpeak',{w})),300);
 }
 function schreiben(){
-  himmel(); boden(H-80); kopf('Schreiben');
-  text('Welcher Buchstabe fehlt?', W/2, 78, 24, '#204060');
+  himmel(); boden(H-80); kopf(t('schreiben'));
+  text(t('whichLetter'), W/2, 78, 24, '#204060');
   // Wort mit Lücke
   const w=schr.w, n=w.length, bw=54, tot=n*bw, sx=(W-tot)/2, sy=110;
   for(let i=0;i<n;i++){
@@ -409,8 +527,8 @@ function schreiben(){
     if(klick('hoer')) sprich(schr.w);
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===schr.richtig){ belohnung(1); zeigeFlash(true,'Richtig! +1 ♦'); sprich('Richtig! '+schr.w); setTimeout(starteSchreiben,1100); }
-      else zeigeFlash(false,'Nicht ganz...');
+      if(opts[i]===schr.richtig){ belohnung(1); zeigeFlash(true,t('correct1')); sprich(t('correctSpeak',{w:schr.w})); setTimeout(starteSchreiben,1100); }
+      else zeigeFlash(false,t('notQuite'));
     }}
   }
 }
@@ -428,10 +546,10 @@ function starteRechnen(){
   while(set.size<4){ let d=erg+Math.floor(Math.random()*7)-3; if(d>=0) set.add(d); }
   const opts=[...set].sort(()=>Math.random()-0.5);
   rech={a,b,erg,zeichen,opts};
-  setTimeout(()=>sprich(a+' '+(minus?'minus':'plus')+' '+b),300);
+  setTimeout(()=>sprich(a+' '+(minus?t('minus'):t('plus'))+' '+b),300);
 }
 function rechnen(){
-  himmel(); boden(H-80); kopf('Rechnen');
+  himmel(); boden(H-80); kopf(t('rechnen'));
   // Aufgabe mit Blöcken visualisiert
   ctx.fillStyle='rgba(255,255,255,0.92)'; rr(W/2-210,78,420,84,14); ctx.fill();
   text(rech.a+'  '+rech.zeichen+'  '+rech.b+'  =  ?', W/2, 120, 46, '#8a3ae0');
@@ -449,8 +567,8 @@ function rechnen(){
   if(pointer.justDown){
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===rech.erg){ belohnung(1); zeigeFlash(true,'Genau! +1 ♦'); sprich('Richtig, '+rech.erg); setTimeout(starteRechnen,1000); }
-      else zeigeFlash(false,'Zähl nochmal nach');
+      if(opts[i]===rech.erg){ belohnung(1); zeigeFlash(true,t('exact')); sprich(t('correctNumSpeak',{n:rech.erg})); setTimeout(starteRechnen,1000); }
+      else zeigeFlash(false,t('countAgain'));
     }}
   }
 }
@@ -459,38 +577,41 @@ function rechnen(){
    5) JUMP & RUN  –  Drachensprung, Diamanten sammeln
    ================================================================ */
 let jr = {};
-function starteJumpRun(){
+function starteJumpRun(level){
+  level = level || 1;
+  const cfg = LEVELS[Math.min(level, LEVELS.length)-1];
   jr = {
     x:120, y:240, vy:0, onGround:true, jumpsLeft:2,
-    worldX:0, speed:2.9, lebt:true,
-    diamGesammelt:0, ziel:5,
+    worldX:0, speed:cfg.speed, lebt:true, level,
+    diamGesammelt:0,
     plattformen:[], diamanten:[], gegner:[], lava:[], schuesse:[], cool:0, custom:false, fertig:false,
   };
   // Start-Plattform direkt unter dem Helden (kein Loch am Anfang)
-  jr.plattformen.push({x:0, y:300, w:360});
+  jr.plattformen.push({x:0, y:300, w:360, mat:'gras'});
   let prevY = 300;
   let px = 360 + 80;
-  for(let i=0;i<13;i++){
-    // Höhe nur um eine Stufe (46px) vom vorherigen abweichen -> gut erreichbar
-    const step = Math.floor(Math.random()*3)-1; // -1,0,+1
+  for(let i=0;i<cfg.count;i++){
+    const step = Math.floor(Math.random()*(cfg.step*2+1)) - cfg.step;
     let py = prevY + step*46;
-    py = Math.max(180, Math.min(300, py));
+    py = Math.max(170, Math.min(300, py));
     prevY = py;
-    const bw = 130 + Math.floor(Math.random()*70);
-    jr.plattformen.push({x:px, y:py, w:bw});
-    // Diamant über Plattform
-    if(Math.random()<0.7) jr.diamanten.push({x:px+bw/2, y:py-50, weg:false});
-    // Drache-Gegner (nicht direkt am Rand der Plattform)
-    if(i>1 && Math.random()<0.45) jr.gegner.push({x:px+bw/2, y:py-46, baseY:py-46, t:Math.random()*6});
-    // Lücke: kleiner als die Sprungweite
-    px += bw + 70 + Math.floor(Math.random()*40);
+    const bw = 120 + Math.floor(Math.random()*70);
+    let mat='gras';
+    if(cfg.feder && Math.random()<0.15) mat='feder';
+    else if(cfg.stein && Math.random()<0.3) mat='stein';
+    jr.plattformen.push({x:px, y:py, w:bw, mat});
+    if(Math.random()<cfg.dia) jr.diamanten.push({x:px+bw/2, y:py-50, weg:false});
+    if(i>1 && Math.random()<cfg.enemy) jr.gegner.push({x:px+bw/2, y:py-46, baseY:py-46, t:Math.random()*6});
+    const gap = cfg.gap + Math.floor(Math.random()*cfg.gapX);
+    if(cfg.lava && Math.random()<0.35) jr.lava.push({x:px+bw+(gap-40)/2, y:360});
+    px += bw + gap;
   }
   jr.endX = px + 100;
 }
 function jumpRun(){
   himmel();
   berge(jr.worldX);
-  kopf('Drachensprung');
+  kopf(t('drachensprung'));
   const groundY = 380;
 
   // Steuerung: läuft automatisch; Tippen = Sprung, Feuer-Knopf = schießen
@@ -559,11 +680,12 @@ function jumpRun(){
     }
     // Ziel erreicht
     if(jr.worldX > jr.endX - jr.x){
+      if(jr.level===save.maxLevel && jr.level<LEVELS.length) save.maxLevel++;
       save.sterne += 1; speichern();
-      pendingScore = jr.diamGesammelt;
+      pendingScore = jr.diamGesammelt; pendingLevel = jr.level;
       jr.lebt=false; jr.fertig=true;
       eingabeName = letzterName;
-      sprich('Super gemacht! Trage deinen Namen ein.');
+      sprich(t('winSpeak'));
       scene='nameEingabe';
     }
   }
@@ -614,24 +736,25 @@ function jumpRun(){
 
   // HUD
   text('♦ '+jr.diamGesammelt, 20, 78, 24,'#204060','left');
+  if(!jr.custom) text(t('level',{n:jr.level}), W/2, 78, 22, '#204060');
   // Sprung-Anzeige (rechts, über dem Feuer-Knopf)
   ctx.fillStyle='rgba(0,0,0,0.28)'; rr(W-240,H-84,220,26,8); ctx.fill();
-  text('⬆ Tippen = Sprung / Doppelsprung', W-130, H-71, 15, '#fff');
+  text(t('jumpHint'), W-130, H-71, 14, '#fff');
   for(let i=0;i<2;i++){ ctx.fillStyle = i<jr.jumpsLeft ? '#63bf44' : 'rgba(255,255,255,0.25)'; ctx.fillRect(W-236+i*15, H-52, 11,11); }
   // Feuer-Knopf
-  knopf('feuer', W-172, H-150, 152, 60, '🔥 Schießen', jr.cool>0?'#a33a2a':'#e05a3a','#fff',22);
+  knopf('feuer', W-172, H-150, 152, 60, t('shoot'), jr.cool>0?'#a33a2a':'#e05a3a','#fff',22);
 
   zurueckKnopf();
 
   // Tod / Fertig-Overlay
   if(!jr.lebt){
     ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
-    if(jr.fertig){ text('★ GESCHAFFT! ★', W/2, 150, 44, '#ffe86b'); text('+'+(jr.diamGesammelt+2)+' Diamanten', W/2, 200, 28, '#fff'); }
-    else { text('Ups! Nochmal?', W/2, 160, 40, '#fff'); }
-    knopf('nochmal', W/2-170, 250, 160, 64, '🔄 Nochmal', '#5aa54a','#fff',24);
-    knopf('menu2',   W/2+10,  250, 160, 64, '🏠 Menü', '#3a86e0','#fff',24);
+    if(jr.fertig){ text(t('geschafft'), W/2, 150, 44, '#ffe86b'); text(t('gotDiamonds',{n:jr.diamGesammelt}), W/2, 200, 28, '#fff'); }
+    else { text(t('ups'), W/2, 160, 40, '#fff'); }
+    knopf('nochmal', W/2-170, 250, 160, 64, t('nochmal'), '#5aa54a','#fff',24);
+    knopf('menu2',   W/2+10,  250, 160, 64, '🏠 '+t('menu'), '#3a86e0','#fff',24);
     if(pointer.justDown){
-      if(klick('nochmal')){ if(darfSpielen()){ zahleSpiel(); if(jr.custom) spieleGebauteWelt(); else starteJumpRun(); } else { sprich('Sammle erst wieder Diamanten beim Lernen.'); scene='menu'; } }
+      if(klick('nochmal')){ if(darfSpielen()){ zahleSpiel(); if(jr.custom) spieleGebauteWelt(); else starteJumpRun(jr.level); } else { sprich(t('collectAgainSpeak')); scene='menu'; } }
       if(klick('menu2')){ scene = jr.custom ? 'bauen' : 'menu'; }
     }
   }
@@ -663,16 +786,17 @@ function starteBauen(){
   }
   builder.grid=g; builder.scroll=0; builder.tool=1;
 }
+const toolKey = { block:'toolBlock', stein:'toolStein', lava:'toolLava', feder:'toolFeder', diamant:'toolDia', drache:'toolDrache', ziel:'toolZiel', radierer:'toolLoeschen' };
 function bauen(){
-  himmel(); berge(builder.scroll); kopf('Bauen');
+  himmel(); berge(builder.scroll); kopf(t('bauenTitle'));
   const gX=20, gY=104, cols=builder.C, rows=builder.R, cs=40, viewW=760;
 
   // Werkzeug-Palette
   const pw=90, ph=42, px0=19, py=56, pgap=6;
-  paletteTools.forEach((t,i)=>{
+  paletteTools.forEach((tl,i)=>{
     const bx=px0+i*(pw+pgap);
-    knopf('t_'+t.id, bx, py, pw, ph, t.icon+' '+t.name, builder.tool===t.v?'#ffb84d':'#5a6a7a','#fff',15);
-    if(builder.tool===t.v){ ctx.strokeStyle='#fff'; ctx.lineWidth=3; rr(bx,py,pw,ph,10); ctx.stroke(); }
+    knopf('t_'+tl.id, bx, py, pw, ph, tl.icon+' '+t(toolKey[tl.id]), builder.tool===tl.v?'#ffb84d':'#5a6a7a','#fff',15);
+    if(builder.tool===tl.v){ ctx.strokeStyle='#fff'; ctx.lineWidth=3; rr(bx,py,pw,ph,10); ctx.stroke(); }
   });
 
   // Bau-Gitter (mit Clipping + Scroll)
@@ -695,16 +819,16 @@ function bauen(){
   }
   ctx.restore();
   if(builder.scroll<40){ ctx.fillStyle='rgba(90,165,74,0.9)'; rr(gX,gY,74,24,6); ctx.fill(); text('START',gX+37,gY+12,15,'#fff'); }
-  text('Werkzeug wählen und ins Feld tippen (zum Malen ziehen)', W/2, 394, 14, '#204060');
+  text(t('buildHint'), W/2, 394, 14, '#204060');
 
   // Aktions-Leiste
   const by=402, bh=62;
   knopf('scrollL',  20, by,  86, bh, '◀', '#3a86e0','#fff',30);
   knopf('scrollR', 112, by,  86, bh, '▶', '#3a86e0','#fff',30);
-  knopf('loeschen',204, by, 140, bh, '🗑️ Leeren', '#e05a5a','#fff',20);
-  knopf('speichern',350,by, 150, bh, '💾 Speichern', '#5aa54a','#fff',20);
-  knopf('spielen', 506, by, 158, bh, '▶️ Spielen', '#c98a2a','#fff',24);
-  knopf('bmenu',   670, by, 110, bh, '⬅ Menü', '#3a86e0','#fff',20);
+  knopf('loeschen',204, by, 140, bh, t('leeren'), '#e05a5a','#fff',18);
+  knopf('speichern',350,by, 150, bh, t('speichernBtn'), '#5aa54a','#fff',18);
+  knopf('spielen', 506, by, 158, bh, t('spielen'), '#c98a2a','#fff',22);
+  knopf('bmenu',   670, by, 110, bh, '⬅ '+t('menu'), '#3a86e0','#fff',18);
   flashZeigen();
 
   // Blöcke setzen (auch beim Ziehen)
@@ -718,12 +842,12 @@ function bauen(){
     }
   }
   if(pointer.justDown){
-    for(const t of paletteTools){ if(klick('t_'+t.id)) builder.tool=t.v; }
+    for(const tl of paletteTools){ if(klick('t_'+tl.id)) builder.tool=tl.v; }
     if(klick('scrollL')) builder.scroll=Math.max(0, builder.scroll-160);
     if(klick('scrollR')) builder.scroll=Math.min(cols*cs-viewW, builder.scroll+160);
     if(klick('loeschen')){ for(let c=0;c<cols;c++) builder.grid[c].fill(0); }
-    if(klick('speichern')){ try{ localStorage.setItem('mc_bauwelt', JSON.stringify(builder.grid)); }catch(e){} zeigeFlash(true,'Welt gespeichert!'); }
-    if(klick('spielen')){ if(darfSpielen()){ zahleSpiel(); spieleGebauteWelt(); } else { zeigeFlash(false,'Erst '+KOSTEN+' ♦ beim Lernen sammeln!'); } }
+    if(klick('speichern')){ try{ localStorage.setItem('mc_bauwelt', JSON.stringify(builder.grid)); }catch(e){} zeigeFlash(true,t('worldSaved')); }
+    if(klick('spielen')){ if(darfSpielen()){ zahleSpiel(); spieleGebauteWelt(); } else { zeigeFlash(false,t('needCollect',{n:KOSTEN})); } }
     if(klick('bmenu')){ scene='menu'; }
   }
 }
@@ -756,9 +880,9 @@ function spieleGebauteWelt(){
 function sperre(){
   himmel();
   ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
-  text('🕒 Zeit ist um!', W/2, 54, 34, '#ffe86b');
-  text('Ein Erwachsener gibt das Passwort ein,', W/2, 96, 19, '#fff');
-  text('um weiterzuspielen.', W/2, 120, 19, '#fff');
+  text(t('timeUp'), W/2, 54, 34, '#ffe86b');
+  text(t('pwLine1'), W/2, 96, 19, '#fff');
+  text(t('pwLine2'), W/2, 120, 19, '#fff');
   ctx.fillStyle='#fff'; rr(W/2-120,140,240,44,8); ctx.fill();
   text(pinEingabe.replace(/./g,'●')||' ', W/2, 162, 26, '#111');
   const nums=['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
@@ -767,15 +891,15 @@ function sperre(){
     const x=gx+(i%3)*(kw+10), y=gy+Math.floor(i/3)*(kh+10);
     knopf('p_'+n, x, y, kw, kh, n, n==='OK'?'#5aa54a':(n==='⌫'?'#e05a5a':'#5a6a7a'), '#fff', 24);
   });
-  knopf('p_beenden', W/2-110, gy+4*(kh+10)+6, 220, 46, '⏻ Spiel beenden', '#c0392b', '#fff', 20);
+  knopf('p_beenden', W/2-110, gy+4*(kh+10)+6, 220, 46, t('endGame'), '#c0392b', '#fff', 20);
   flashZeigen();
   if(pointer.justDown){
-    if(klick('p_beenden')){ if(!appBeenden()){ zeigeFlash(true,'Bitte App schließen'); } return; }
+    if(klick('p_beenden')){ if(!appBeenden()){ zeigeFlash(true,t('closeHint')); } return; }
     for(const n of nums){ if(klick('p_'+n)){
       if(n==='⌫') pinEingabe=pinEingabe.slice(0,-1);
       else if(n==='OK'){
         if(pinEingabe===ELTERN_PIN){ startZeit=Date.now(); pinEingabe=''; sndOk(); scene='menu'; }
-        else { zeigeFlash(false,'Falsches Passwort'); pinEingabe=''; }
+        else { zeigeFlash(false,t('wrongPw')); pinEingabe=''; }
       } else if(pinEingabe.length<6) pinEingabe+=n;
     }}
   }
@@ -783,8 +907,8 @@ function sperre(){
 const tastenReihen = ['ABCDEFGHIJ','KLMNOPQRST','UVWXYZÄÖÜ'];
 function nameEingabe(){
   himmel();
-  text('Super! 🎉 Trage deinen Namen ein', W/2, 54, 28, '#123');
-  text('Punkte: '+pendingScore+' ♦', W/2, 92, 22, '#8a3ae0');
+  text(t('enterName'), W/2, 54, 28, '#123');
+  text(t('points',{n:pendingScore}), W/2, 92, 22, '#8a3ae0');
   ctx.fillStyle='#fff'; rr(W/2-200,112,400,50,10); ctx.fill();
   ctx.strokeStyle='#3a86e0'; ctx.lineWidth=3; rr(W/2-200,112,400,50,10); ctx.stroke();
   text(eingabeName+((anim%40<20)?'|':''), W/2, 137, 28, '#111');
@@ -796,9 +920,9 @@ function nameEingabe(){
     }
   });
   const by=ky+3*(kh+6)+6;
-  knopf('space', W/2-250, by, 150, 50, 'Leer', '#5a6a7a','#fff',20);
-  knopf('del',   W/2-90,  by, 130, 50, '⌫ Weg', '#e05a5a','#fff',20);
-  knopf('okname',W/2+52,  by, 200, 50, '✔ Fertig', '#5aa54a','#fff',22);
+  knopf('space', W/2-250, by, 150, 50, t('leer'), '#5a6a7a','#fff',20);
+  knopf('del',   W/2-90,  by, 130, 50, t('weg'), '#e05a5a','#fff',20);
+  knopf('okname',W/2+52,  by, 200, 50, t('fertig'), '#5aa54a','#fff',22);
   flashZeigen();
   if(pointer.justDown){
     tastenReihen.forEach((row,ri)=>{ for(let ci=0;ci<row.length;ci++){ if(klick('k_'+ri+'_'+ci) && eingabeName.length<10){ eingabeName+=row[ci]; beep(600,0.04); } } });
@@ -807,30 +931,56 @@ function nameEingabe(){
     if(klick('okname')){
       const nm=eingabeName.trim()||'Kind';
       letzterName=nm; try{ localStorage.setItem('mc_lastname',nm); }catch(e){}
-      speichereHighscore(nm, pendingScore); sndOk();
+      speichereHighscore(nm, pendingScore, pendingLevel); sndOk();
       scene='bestenliste';
     }
   }
 }
 function bestenliste(){
   himmel();
-  text('🏆 Bestenliste', W/2, 48, 38, '#123');
+  text(t('hsTitle'), W/2, 48, 38, '#123');
   ctx.fillStyle='rgba(255,255,255,0.92)'; rr(80,84,640,330,12); ctx.fill();
-  text('Platz', 110, 108, 16, '#666','left'); text('Name', 210, 108, 16,'#666','left'); text('Punkte', 470, 108, 16,'#666','left'); text('Datum', 590, 108, 16,'#666','left');
-  if(highscore.length===0){ text('Noch keine Einträge – spiel den Drachensprung!', W/2, 250, 20, '#666'); }
+  text(t('platz'), 110, 108, 16, '#666','left'); text(t('hsName'), 205, 108, 16,'#666','left'); text(t('punkte'), 430, 108, 16,'#666','left'); text(t('level',{n:''}).trim(), 545, 108, 16,'#666','left'); text(t('datum'), 620, 108, 16,'#666','left');
+  if(highscore.length===0){ text(t('hsEmpty'), W/2, 250, 20, '#666'); }
   highscore.slice(0,8).forEach((e,i)=>{
     const y=138+i*33;
     text(i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.', 110, y, 20, '#111','left');
-    text(e.name, 210, y, 20, '#111','left');
-    text(e.punkte+' ♦', 470, y, 20, '#8a3ae0','left');
-    text(e.datum, 590, y, 18, '#555','left');
+    text(e.name, 205, y, 20, '#111','left');
+    text(e.punkte+' ♦', 430, y, 20, '#8a3ae0','left');
+    text(e.level? e.level : '1', 555, y, 20, '#5aa54a','left');
+    text(e.datum, 620, y, 18, '#555','left');
   });
-  knopf('blmenu', W/2-90, 424, 180, 46, '⬅ Menü', '#3a86e0','#fff',22);
+  knopf('blmenu', W/2-90, 424, 180, 46, '⬅ '+t('menu'), '#3a86e0','#fff',22);
   if(pointer.justDown && klick('blmenu')) scene='menu';
+}
+function levelwahl(){
+  himmel(); boden(H-80); kopf(t('drachensprung'));
+  text(t('chooseLevel'), W/2, 92, 26, '#204060');
+  const n=LEVELS.length, bw=126, bh=118, gap=14, tot=n*bw+(n-1)*gap, sx=(W-tot)/2, y=140;
+  for(let i=1;i<=n;i++){
+    const x=sx+(i-1)*(bw+gap);
+    const frei = i<=save.maxLevel;
+    knopf('lvl'+i, x, y, bw, bh, '', frei?'#5aa54a':'#7a5a3a','#fff', 20);
+    if(frei){ text('▶', x+bw/2, y+38, 42, '#fff'); }
+    else { text('🔒', x+bw/2, y+40, 40, '#fff'); }
+    text(t('level',{n:i}), x+bw/2, y+bh-24, 18, '#fff');
+  }
+  text(t('costLine',{n:KOSTEN}), W/2, 300, 18, '#7a3a1a');
+  knopf('lwback', W/2-90, 400, 180, 50, '⬅ '+t('menu'), '#3a86e0','#fff',22);
+  flashZeigen();
+  if(pointer.justDown){
+    for(let i=1;i<=n;i++){ if(klick('lvl'+i)){
+      if(i>save.maxLevel){ zeigeFlash(false, t('locked')); return; }
+      if(darfSpielen()){ zahleSpiel(); starteJumpRun(i); scene='jumprun'; }
+      else { zeigeFlash(false, t('firstCollect',{n:KOSTEN})); }
+      return;
+    }}
+    if(klick('lwback')){ scene='menu'; }
+  }
 }
 
 /* ---------- gemeinsame UI-Teile ---------- */
-function zurueckKnopf(){ knopf('zurueck', 12, H-52, 130, 40, '⬅ Menü', '#3a86e0', '#fff', 20); }
+function zurueckKnopf(){ knopf('zurueck', 12, H-52, 130, 40, '⬅ '+t('menu'), '#3a86e0', '#fff', 20); }
 function flashZeigen(){
   if(flash.t>0 && flash.t<900){
     flash.t--;
@@ -856,11 +1006,12 @@ function loop(){
   anim++;
   buttons.length=0;
   ctx.clearRect(0,0,W,H);
-  if(scene!=='sperre' && scene!=='nameEingabe' && Date.now()-startZeit>SPIELZEIT_MS){ scene='sperre'; pinEingabe=''; sprich('Die Spielzeit ist zu Ende.'); }
+  if(scene!=='sperre' && scene!=='nameEingabe' && Date.now()-startZeit>SPIELZEIT_MS){ scene='sperre'; pinEingabe=''; sprich(t('timeUpSpeak')); }
   if(scene==='menu') menu();
   else if(scene==='lesen') lesen();
   else if(scene==='schreiben') schreiben();
   else if(scene==='rechnen') rechnen();
+  else if(scene==='levelwahl') levelwahl();
   else if(scene==='jumprun') jumpRun();
   else if(scene==='bauen') bauen();
   else if(scene==='sperre') sperre();

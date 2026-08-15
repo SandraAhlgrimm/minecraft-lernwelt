@@ -66,9 +66,17 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface
         public void sprich(final String text) {
+            sprich(text, null);
+        }
+
+        @JavascriptInterface
+        public void sprich(final String text, final String lang) {
             if (tts != null && ttsReady && text != null) {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override public void run() {
+                        if (lang != null && lang.length() >= 2) {
+                            try { tts.setLanguage(Locale.forLanguageTag(lang)); } catch (Exception e) {}
+                        }
                         String id = "u" + System.currentTimeMillis();
                         if (Build.VERSION.SDK_INT >= 21) {
                             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);

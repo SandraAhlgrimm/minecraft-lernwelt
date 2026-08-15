@@ -13,8 +13,12 @@ Vier Lern-Minispiele plus ein eigener Weltenbau-Modus:
 | 📖 **Lesen** | Wörter vorlesen (mit langer Lesezeit zum Vorlesen) |
 | ✏️ **Schreiben** | Buchstaben / Wörter über eine Bildschirmtastatur schreiben |
 | ➕ **Rechnen** | Plus- und Minus-Aufgaben |
-| 🐉 **Drachensprung** | Jump-'n'-Run mit Doppelsprung, Feuerbällen, Lava & Gegnern |
+| 🐉 **Drachensprung** | Jump-'n'-Run mit **5 Leveln** (steigender Schwierigkeit), Doppelsprung, Feuerbällen, Lava & Gegnern |
 | 🔨 **Drachenwelt bauen** | Eigene Level bauen (Stein, Lava, Sprungfeder, Blöcke) |
+
+## 🌍 Sprachen
+
+Das Spiel ist mehrsprachig: **Deutsch 🇩🇪, Englisch 🇬🇧 und Französisch 🇫🇷**. Oben im Menü wechselt ein Flaggen-Knopf die Sprache – Texte, Wörter (Lesen/Schreiben) und die Vorlese-Stimme passen sich automatisch an. Die Wahl wird gespeichert.
 
 ## 👪 Eltern-Funktionen
 
