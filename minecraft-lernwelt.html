@@ -9,7 +9,7 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; background:#1d2b53; font-family:'Trebuchet MS','Segoe UI',sans-serif; }
   #game { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
-  canvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#7ec0ee; touch-action:none; }
+  canvas { image-rendering:auto; background:#7ec0ee; touch-action:none; }
   /* pixel font look */
   .px { font-family:'Trebuchet MS',sans-serif; letter-spacing:1px; }
 </style>
@@ -25,13 +25,20 @@
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 const W = 800, H = 480;
-ctx.imageSmoothingEnabled = false;
 
-/* ---------- Bildschirm skalieren (Tablet, Querformat) ---------- */
+/* ---------- Bildschirm skalieren (Tablet, Querformat, HiDPI/scharf) ---------- */
 function resize(){
   const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const dpr = window.devicePixelRatio || 1;
   cv.style.width  = (W * s) + 'px';
   cv.style.height = (H * s) + 'px';
+  // interne Auflösung = Anzeigegröße × Geräte-Pixeldichte -> gestochen scharf
+  cv.width  = Math.round(W * s * dpr);
+  cv.height = Math.round(H * s * dpr);
+  const sc = cv.width / W;
+  ctx.setTransform(sc, 0, 0, sc, 0, 0);   // Zeichnen weiterhin in 800×480-Logik
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 }
 window.addEventListener('resize', resize); resize();
 
