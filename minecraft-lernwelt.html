@@ -317,7 +317,7 @@ const ELTERN_PIN = '1144';         // Passwort für Erwachsene (hier änderbar)
 let highscore = [];
 try{ const hs=localStorage.getItem('mc_highscore'); if(hs) highscore=JSON.parse(hs); }catch(e){}
 let letzterName=''; try{ letzterName=localStorage.getItem('mc_lastname')||''; }catch(e){}
-let eingabeName='', pinEingabe='', pendingScore=0, pendingLevel=1;
+let eingabeName='', pinEingabe='', pendingScore=0, pendingLevel=1, letzterEintrag=null, antwortGesperrt=false;
 const LEVELS = [
   {speed:2.6, count:11, gap:64, gapX:30, step:1, enemy:0.25, dia:0.78, stein:false, feder:false, lava:false},
   {speed:2.9, count:13, gap:70, gapX:40, step:1, enemy:0.40, dia:0.72, stein:true,  feder:true,  lava:false},
@@ -329,7 +329,7 @@ function darfSpielen(){ return save.diamanten >= KOSTEN; }
 function zahleSpiel(){ save.diamanten -= KOSTEN; if(save.diamanten<0) save.diamanten=0; speichern(); }
 function restZeitStr(){ const ms=Math.max(0, SPIELZEIT_MS-(Date.now()-startZeit)); const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); return m+':'+(s<10?'0':'')+s; }
 function heuteStr(){ const d=new Date(), p=n=>(n<10?'0':'')+n; return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear(); }
-function speichereHighscore(name,punkte,level){ highscore.push({name:name||'Kind', punkte, level:level||1, datum:heuteStr()}); highscore.sort((a,b)=>b.punkte-a.punkte); highscore=highscore.slice(0,10); try{localStorage.setItem('mc_highscore',JSON.stringify(highscore));}catch(e){} }
+function speichereHighscore(name,punkte,level){ const eintrag={name:name||'Kind', punkte, level:level||1, datum:heuteStr()}; letzterEintrag=eintrag; highscore.push(eintrag); highscore.sort((a,b)=>b.punkte-a.punkte); highscore=highscore.slice(0,10); try{localStorage.setItem('mc_highscore',JSON.stringify(highscore));}catch(e){} }
 function zeigeFlash(ok,msg){ flash.t=60; flash.ok=ok; flash.msg=msg; if(ok){sndOk();} else {sndFail();} }
 
 function belohnung(diam){ save.diamanten += diam; save.sterne += 1; speichern(); }
@@ -468,6 +468,7 @@ function starteLesen(){
   const a = liste[Math.floor(Math.random()*liste.length)];
   const opts = [a.richtig, ...a.falsch].sort(()=>Math.random()-0.5);
   lese = { a, opts };
+  antwortGesperrt=false;
   setTimeout(()=>sprich(t('readWordSpeak',{w:a.wort})), 300);
 }
 function lesen(){
@@ -488,7 +489,8 @@ function lesen(){
     if(klick('hoer')) sprich(lese.a.wort);
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===lese.a.richtig){ belohnung(1); zeigeFlash(true,t('super1')); sprich(t('correctSpeak',{w:lese.a.wort})); setTimeout(starteLesen,3500); }
+      if(antwortGesperrt) break;
+      if(opts[i]===lese.a.richtig){ antwortGesperrt=true; belohnung(1); zeigeFlash(true,t('super1')); sprich(t('correctSpeak',{w:lese.a.wort})); setTimeout(starteLesen,3500); }
       else { zeigeFlash(false,t('tryAgain')); }
     }}
   }
@@ -513,6 +515,7 @@ function starteSchreiben(){
   while(set.size<4){ set.add(alphabet[Math.floor(Math.random()*26)]); }
   const opts=[...set].sort(()=>Math.random()-0.5);
   schr={ w, pos, richtig, opts };
+  antwortGesperrt=false;
   setTimeout(()=>sprich(t('whichLetterSpeak',{w})),300);
 }
 function schreiben(){
@@ -534,7 +537,8 @@ function schreiben(){
     if(klick('hoer')) sprich(schr.w);
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===schr.richtig){ belohnung(1); zeigeFlash(true,t('correct1')); sprich(t('correctSpeak',{w:schr.w})); setTimeout(starteSchreiben,1100); }
+      if(antwortGesperrt) break;
+      if(opts[i]===schr.richtig){ antwortGesperrt=true; belohnung(1); zeigeFlash(true,t('correct1')); sprich(t('correctSpeak',{w:schr.w})); setTimeout(starteSchreiben,1100); }
       else zeigeFlash(false,t('notQuite'));
     }}
   }
@@ -553,6 +557,7 @@ function starteRechnen(){
   while(set.size<4){ let d=erg+Math.floor(Math.random()*7)-3; if(d>=0) set.add(d); }
   const opts=[...set].sort(()=>Math.random()-0.5);
   rech={a,b,erg,zeichen,opts};
+  antwortGesperrt=false;
   setTimeout(()=>sprich(a+' '+(minus?t('minus'):t('plus'))+' '+b),300);
 }
 function rechnen(){
@@ -574,7 +579,8 @@ function rechnen(){
   if(pointer.justDown){
     if(klick('zurueck')){ scene='menu'; return; }
     for(let i=0;i<opts.length;i++){ if(klick('opt'+i)){
-      if(opts[i]===rech.erg){ belohnung(1); zeigeFlash(true,t('exact')); sprich(t('correctNumSpeak',{n:rech.erg})); setTimeout(starteRechnen,1000); }
+      if(antwortGesperrt) break;
+      if(opts[i]===rech.erg){ antwortGesperrt=true; belohnung(1); zeigeFlash(true,t('exact')); sprich(t('correctNumSpeak',{n:rech.erg})); setTimeout(starteRechnen,1000); }
       else zeigeFlash(false,t('countAgain'));
     }}
   }
@@ -965,8 +971,13 @@ function bestenliste(){
   if(highscore.length===0){ text(t('hsEmpty'), W/2, 250, 20, '#666'); }
   highscore.slice(0,8).forEach((e,i)=>{
     const y=138+i*33;
+    if(e===letzterEintrag){
+      ctx.fillStyle='rgba(255,205,60,0.55)'; rr(96,y-16,608,30,8); ctx.fill();
+      ctx.strokeStyle='#f0a800'; ctx.lineWidth=2.5; rr(96,y-16,608,30,8); ctx.stroke();
+      text('▶', 690, y, 18, '#e08a00','left');
+    }
     text(i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.', 110, y, 20, '#111','left');
-    text(e.name, 205, y, 20, '#111','left');
+    text(e.name, 205, y, 20, e===letzterEintrag?'#7a4a00':'#111','left');
     text(e.punkte+' ♦', 430, y, 20, '#8a3ae0','left');
     text(e.level? e.level : '1', 555, y, 20, '#5aa54a','left');
     text(e.datum, 620, y, 18, '#555','left');
