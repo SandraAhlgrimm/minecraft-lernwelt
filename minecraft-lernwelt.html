@@ -74,7 +74,8 @@ const I18N = {
     enterName:'Super! 🎉 Trage deinen Namen ein', points:'Punkte: {n} ♦', leer:'Leer', weg:'⌫ Weg', fertig:'✔ Fertig',
     hsTitle:'🏆 Bestenliste', platz:'Platz', hsName:'Name', punkte:'Punkte', datum:'Datum', hsEmpty:'Noch keine Einträge – spiel den Drachensprung!',
     bauenTitle:'Bauen', toolBlock:'Block', toolStein:'Stein', toolLava:'Lava', toolFeder:'Feder', toolDia:'Dia', toolDrache:'Drache', toolZiel:'Ziel', toolLoeschen:'Löschen',
-    buildHint:'Werkzeug wählen und ins Feld tippen (zum Malen ziehen)', leeren:'🗑️ Leeren', speichernBtn:'💾 Speichern', spielen:'▶️ Spielen', worldSaved:'Welt gespeichert!', needCollect:'Erst {n} ♦ beim Lernen sammeln!'
+    buildHint:'Werkzeug wählen und ins Feld tippen (zum Malen ziehen)', leeren:'🗑️ Leeren', speichernBtn:'💾 Speichern', spielen:'▶️ Spielen', worldSaved:'Welt gespeichert!', needCollect:'Erst {n} ♦ beim Lernen sammeln!',
+    weltenBtn:'📂 Welten', meineWelten:'📂 Meine Welten', weltNameFrage:'Wie soll die Welt heißen?', keineWelten:'Noch keine Welten. Baue eine im Bau-Modus!', weltGespeichertName:'Welt „{n}" gespeichert!', neueWelt:'➕ Neue Welt'
   },
   en:{
     lernwelt:'LEARNING WORLD', lesen:'Reading', schreiben:'Writing', rechnen:'Math',
@@ -92,7 +93,8 @@ const I18N = {
     enterName:'Great! 🎉 Enter your name', points:'Points: {n} ♦', leer:'Space', weg:'⌫ Del', fertig:'✔ Done',
     hsTitle:'🏆 High Scores', platz:'Rank', hsName:'Name', punkte:'Points', datum:'Date', hsEmpty:'No entries yet – play Dragon Jump!',
     bauenTitle:'Build', toolBlock:'Block', toolStein:'Stone', toolLava:'Lava', toolFeder:'Spring', toolDia:'Gem', toolDrache:'Dragon', toolZiel:'Goal', toolLoeschen:'Erase',
-    buildHint:'Pick a tool and tap the grid (drag to paint)', leeren:'🗑️ Clear', speichernBtn:'💾 Save', spielen:'▶️ Play', worldSaved:'World saved!', needCollect:'Collect {n} ♦ by learning first!'
+    buildHint:'Pick a tool and tap the grid (drag to paint)', leeren:'🗑️ Clear', speichernBtn:'💾 Save', spielen:'▶️ Play', worldSaved:'World saved!', needCollect:'Collect {n} ♦ by learning first!',
+    weltenBtn:'📂 Worlds', meineWelten:'📂 My Worlds', weltNameFrage:'What is the world called?', keineWelten:'No worlds yet. Build one in Build mode!', weltGespeichertName:'World "{n}" saved!', neueWelt:'➕ New world'
   },
   fr:{
     lernwelt:'MONDE MAGIQUE', lesen:'Lecture', schreiben:'Écriture', rechnen:'Calcul',
@@ -110,7 +112,8 @@ const I18N = {
     enterName:'Super! 🎉 Écris ton nom', points:'Points: {n} ♦', leer:'Espace', weg:'⌫ Eff.', fertig:'✔ Fini',
     hsTitle:'🏆 Meilleurs', platz:'Rang', hsName:'Nom', punkte:'Points', datum:'Date', hsEmpty:'Aucune entrée – joue au Saut du Dragon!',
     bauenTitle:'Construire', toolBlock:'Bloc', toolStein:'Pierre', toolLava:'Lave', toolFeder:'Ressort', toolDia:'Gemme', toolDrache:'Dragon', toolZiel:'But', toolLoeschen:'Effacer',
-    buildHint:'Choisis un outil et touche la grille (glisse pour peindre)', leeren:'🗑️ Vider', speichernBtn:'💾 Sauver', spielen:'▶️ Jouer', worldSaved:'Monde sauvé!', needCollect:'Récolte {n} ♦ en apprenant!'
+    buildHint:'Choisis un outil et touche la grille (glisse pour peindre)', leeren:'🗑️ Vider', speichernBtn:'💾 Sauver', spielen:'▶️ Jouer', worldSaved:'Monde sauvé!', needCollect:'Récolte {n} ♦ en apprenant!',
+    weltenBtn:'📂 Mondes', meineWelten:'📂 Mes mondes', weltNameFrage:'Quel nom pour le monde ?', keineWelten:'Aucun monde. Construis-en un !', weltGespeichertName:'Monde « {n} » sauvé!', neueWelt:'➕ Nouveau monde'
   }
 };
 function t(k, p){
@@ -318,6 +321,11 @@ let highscore = [];
 try{ const hs=localStorage.getItem('mc_highscore'); if(hs) highscore=JSON.parse(hs); }catch(e){}
 let letzterName=''; try{ letzterName=localStorage.getItem('mc_lastname')||''; }catch(e){}
 let eingabeName='', pinEingabe='', pendingScore=0, pendingLevel=1, letzterEintrag=null, antwortGesperrt=false;
+let pendingCustom=false, pendingWeltIndex=-1;
+/* --- gespeicherte, benannte Welten --- */
+let welten=[]; try{ const w=localStorage.getItem('mc_welten'); if(w) welten=JSON.parse(w); }catch(e){}
+function speichereWelten(){ try{ localStorage.setItem('mc_welten', JSON.stringify(welten)); }catch(e){} }
+let weltNameEingabe='', weltenScroll=0;
 const LEVELS = [
   {speed:2.6, count:11, gap:64, gapX:30, step:1, enemy:0.25, dia:0.78, stein:false, feder:false, lava:false},
   {speed:2.9, count:13, gap:70, gapX:40, step:1, enemy:0.40, dia:0.72, stein:true,  feder:true,  lava:false},
@@ -401,8 +409,9 @@ function menu(){
   });
   if(!darfSpielen()) text(t('collectHint',{n:KOSTEN}), W/2, 372, 15, '#7a3a1a');
 
-  knopf('bauen', 40, 392, 430, 54, t('bauenBtn'), '#c98a2a', '#fff', 20);
-  knopf('bestenliste', 490, 392, 270, 54, t('bestenlisteBtn'), '#3a86e0', '#fff', 20);
+  knopf('bauen', 40, 392, 300, 54, t('bauenBtn'), '#c98a2a', '#fff', 19);
+  knopf('meineWelten', 356, 392, 190, 54, t('meineWelten'), '#8a5ad0', '#fff', 17);
+  knopf('bestenliste', 562, 392, 198, 54, t('bestenlisteBtn'), '#3a86e0', '#fff', 18);
   flashZeigen();
 
   if(pointer.justDown){
@@ -417,6 +426,7 @@ function menu(){
       }
     }
     if(klick('bauen')){ starteBauen(); scene='bauen'; return; }
+    if(klick('meineWelten')){ weltenScroll=0; scene='meineWelten'; return; }
     if(klick('bestenliste')){ scene='bestenliste'; return; }
   }
 }
@@ -705,9 +715,10 @@ function jumpRun(){
     }
     // Ziel erreicht
     if(jr.worldX > jr.endX - jr.x){
-      if(jr.level===save.maxLevel && jr.level<LEVELS.length) save.maxLevel++;
+      if(!jr.custom && jr.level===save.maxLevel && jr.level<LEVELS.length) save.maxLevel++;
       save.sterne += 1; speichern();
       pendingScore = jr.diamGesammelt; pendingLevel = jr.level;
+      pendingCustom = jr.custom; pendingWeltIndex = (typeof jr.weltIndex==='number' ? jr.weltIndex : -1);
       jr.lebt=false; jr.fertig=true;
       eingabeName = letzterName;
       sprich(t('winSpeak'));
@@ -850,12 +861,13 @@ function bauen(){
 
   // Aktions-Leiste
   const by=402, bh=62;
-  knopf('scrollL',  20, by,  86, bh, '◀', '#3a86e0','#fff',30);
-  knopf('scrollR', 112, by,  86, bh, '▶', '#3a86e0','#fff',30);
-  knopf('loeschen',204, by, 140, bh, t('leeren'), '#e05a5a','#fff',18);
-  knopf('speichern',350,by, 150, bh, t('speichernBtn'), '#5aa54a','#fff',18);
-  knopf('spielen', 506, by, 158, bh, t('spielen'), '#c98a2a','#fff',22);
-  knopf('bmenu',   670, by, 110, bh, '⬅ '+t('menu'), '#3a86e0','#fff',18);
+  knopf('scrollL',  20, by,  66, bh, '◀', '#3a86e0','#fff',26);
+  knopf('scrollR',  90, by,  66, bh, '▶', '#3a86e0','#fff',26);
+  knopf('loeschen',160, by, 104, bh, t('leeren'), '#e05a5a','#fff',16);
+  knopf('speichern',268,by, 120, bh, t('speichernBtn'), '#5aa54a','#fff',16);
+  knopf('welten',  392, by,  96, bh, t('weltenBtn'), '#8a5ad0','#fff',16);
+  knopf('spielen', 492, by, 160, bh, t('spielen'), '#c98a2a','#fff',22);
+  knopf('bmenu',   656, by, 124, bh, '⬅ '+t('menu'), '#3a86e0','#fff',16);
   flashZeigen();
 
   // Blöcke setzen (auch beim Ziehen)
@@ -873,14 +885,16 @@ function bauen(){
     if(klick('scrollL')) builder.scroll=Math.max(0, builder.scroll-160);
     if(klick('scrollR')) builder.scroll=Math.min(cols*cs-viewW, builder.scroll+160);
     if(klick('loeschen')){ for(let c=0;c<cols;c++) builder.grid[c].fill(0); }
-    if(klick('speichern')){ try{ localStorage.setItem('mc_bauwelt', JSON.stringify(builder.grid)); }catch(e){} zeigeFlash(true,t('worldSaved')); }
-    if(klick('spielen')){ if(darfSpielen()){ zahleSpiel(); spieleGebauteWelt(); } else { zeigeFlash(false,t('needCollect',{n:KOSTEN})); } }
+    if(klick('speichern')){ try{ localStorage.setItem('mc_bauwelt', JSON.stringify(builder.grid)); }catch(e){} weltNameEingabe=''; scene='weltName'; }
+    if(klick('welten')){ weltenScroll=0; scene='meineWelten'; }
+    if(klick('spielen')){ if(darfSpielen()){ zahleSpiel(); spieleGebauteWelt(-1); } else { zeigeFlash(false,t('needCollect',{n:KOSTEN})); } }
     if(klick('bmenu')){ scene='menu'; }
   }
 }
-function spieleGebauteWelt(){
+function spieleGebauteWelt(weltIndex){
   starteJumpRun();
   jr.custom=true;
+  jr.weltIndex = (typeof weltIndex==='number' ? weltIndex : -1);
   jr.plattformen=[{x:0,y:300,w:240,mat:'gras'}];  // sichere Start-Plattform
   jr.diamanten=[]; jr.gegner=[]; jr.lava=[]; jr.schuesse=[];
   const base=300; let maxX=base, goalX=null;
@@ -899,6 +913,12 @@ function spieleGebauteWelt(){
   }
   jr.endX = (goalX!==null ? goalX+40 : maxX+120);
   scene='jumprun';
+}
+// Gespeicherte, benannte Welt spielen
+function spieleWelt(index){
+  const w=welten[index]; if(!w) return;
+  builder.grid = w.grid.map(col=>col.slice());
+  spieleGebauteWelt(index);
 }
 
 /* ================================================================
@@ -959,7 +979,14 @@ function nameEingabe(){
       const nm=eingabeName.trim()||'Kind';
       letzterName=nm; try{ localStorage.setItem('mc_lastname',nm); }catch(e){}
       speichereHighscore(nm, pendingScore, pendingLevel); sndOk();
-      scene='bestenliste';
+      // Nächstes Level automatisch starten (auch selbst gebaute Welten)
+      if(pendingCustom){
+        if(pendingWeltIndex>=0 && pendingWeltIndex+1 < welten.length && darfSpielen()){ zahleSpiel(); sprich(t('winSpeak')); spieleWelt(pendingWeltIndex+1); }
+        else scene='bestenliste';
+      } else {
+        if(pendingLevel < LEVELS.length && darfSpielen()){ zahleSpiel(); sprich(t('winSpeak')); starteJumpRun(pendingLevel+1); scene='jumprun'; }
+        else scene='bestenliste';
+      }
     }
   }
 }
@@ -1011,6 +1038,80 @@ function levelwahl(){
   }
 }
 
+/* ---------- Welt benennen & speichern ---------- */
+function weltName(){
+  himmel();
+  text(t('weltNameFrage'), W/2, 52, 26, '#123');
+  ctx.fillStyle='#fff'; rr(W/2-200,88,400,50,10); ctx.fill();
+  ctx.strokeStyle='#8a5ad0'; ctx.lineWidth=3; rr(W/2-200,88,400,50,10); ctx.stroke();
+  text(weltNameEingabe+((anim%40<20)?'|':''), W/2, 113, 28, '#111');
+  const kw=70, kh=42, ky=158;
+  tastenReihen.forEach((row,ri)=>{
+    const sx=(W - row.length*(kw+4))/2;
+    for(let ci=0;ci<row.length;ci++){
+      knopf('wk_'+ri+'_'+ci, sx+ci*(kw+4), ky+ri*(kh+6), kw, kh, row[ci], '#5a6a7a','#fff',22);
+    }
+  });
+  const by=ky+3*(kh+6)+8;
+  knopf('wspace', W/2-250, by, 150, 48, t('leer'), '#5a6a7a','#fff',20);
+  knopf('wdel',   W/2-90,  by, 130, 48, t('weg'), '#e05a5a','#fff',20);
+  knopf('wok',    W/2+52,  by, 200, 48, t('fertig'), '#5aa54a','#fff',22);
+  knopf('wabbruch', 12, H-52, 150, 40, '⬅ '+t('bauenTitle'), '#3a86e0','#fff',18);
+  flashZeigen();
+  if(pointer.justDown){
+    tastenReihen.forEach((row,ri)=>{ for(let ci=0;ci<row.length;ci++){ if(klick('wk_'+ri+'_'+ci) && weltNameEingabe.length<12){ weltNameEingabe+=row[ci]; beep(600,0.04); } } });
+    if(klick('wspace') && weltNameEingabe.length<12 && weltNameEingabe.length>0) weltNameEingabe+=' ';
+    if(klick('wdel')) weltNameEingabe=weltNameEingabe.slice(0,-1);
+    if(klick('wabbruch')){ scene='bauen'; return; }
+    if(klick('wok')){
+      const nm=weltNameEingabe.trim()||('Welt '+(welten.length+1));
+      const grid=builder.grid.map(col=>col.slice());
+      const vorhanden=welten.findIndex(w=>w.name.toLowerCase()===nm.toLowerCase());
+      if(vorhanden>=0){ welten[vorhanden]={name:nm, grid, datum:heuteStr()}; }
+      else { welten.push({name:nm, grid, datum:heuteStr()}); }
+      speichereWelten(); sndOk();
+      zeigeFlash(true, t('weltGespeichertName',{n:nm}));
+      scene='bauen';
+    }
+  }
+}
+
+/* ---------- Meine Welten: gespeicherte Welten wiederfinden & spielen ---------- */
+function meineWelten(){
+  himmel();
+  text(t('meineWelten'), W/2, 44, 34, '#123');
+  ctx.fillStyle='rgba(255,255,255,0.92)'; rr(60,72,680,318,12); ctx.fill();
+  if(welten.length===0){ text(t('keineWelten'), W/2, 220, 20, '#666'); }
+  const proSeite=5, start=weltenScroll;
+  for(let i=0;i<proSeite;i++){
+    const idx=start+i; if(idx>=welten.length) break;
+    const w=welten[idx]; const y=90+i*58;
+    ctx.fillStyle='rgba(90,90,120,0.08)'; rr(74,y,652,50,8); ctx.fill();
+    text((idx+1)+'. '+w.name, 90, y+25, 22, '#123','left');
+    text(w.datum, 470, y+25, 16, '#666','left');
+    knopf('wspiel'+idx, 556, y+6, 100, 38, t('spielen'), '#5aa54a','#fff',17);
+    knopf('wdelete'+idx, 664, y+6, 52, 38, '🗑️', '#e05a5a','#fff',18);
+  }
+  if(welten.length>proSeite){
+    knopf('wup', 60, 400, 110, 46, '▲', '#3a86e0','#fff',24);
+    knopf('wdown', 178, 400, 110, 46, '▼', '#3a86e0','#fff',24);
+  }
+  knopf('wlback', W-210, 400, 150, 46, '⬅ '+t('menu'), '#3a86e0','#fff',20);
+  flashZeigen();
+  if(pointer.justDown){
+    for(let i=0;i<proSeite;i++){
+      const idx=start+i; if(idx>=welten.length) break;
+      if(klick('wspiel'+idx)){ if(darfSpielen()){ zahleSpiel(); spieleWelt(idx); } else { zeigeFlash(false,t('needCollect',{n:KOSTEN})); } return; }
+      if(klick('wdelete'+idx)){ welten.splice(idx,1); speichereWelten(); if(weltenScroll>=welten.length) weltenScroll=Math.max(0,weltenScroll-proSeite); sndFail(); return; }
+    }
+    if(welten.length>proSeite){
+      if(klick('wup')) weltenScroll=Math.max(0, weltenScroll-proSeite);
+      if(klick('wdown')) weltenScroll=Math.min(Math.max(0,welten.length-proSeite), weltenScroll+proSeite);
+    }
+    if(klick('wlback')) scene='menu';
+  }
+}
+
 /* ---------- gemeinsame UI-Teile ---------- */
 function zurueckKnopf(){ knopf('zurueck', 12, H-52, 130, 40, '⬅ '+t('menu'), '#3a86e0', '#fff', 20); }
 function flashZeigen(){
@@ -1046,6 +1147,8 @@ function loop(){
   else if(scene==='levelwahl') levelwahl();
   else if(scene==='jumprun') jumpRun();
   else if(scene==='bauen') bauen();
+  else if(scene==='weltName') weltName();
+  else if(scene==='meineWelten') meineWelten();
   else if(scene==='sperre') sperre();
   else if(scene==='nameEingabe') nameEingabe();
   else if(scene==='bestenliste') bestenliste();
